@@ -3,119 +3,61 @@ export class Environment {
     this.scene = scene;
     this.physics = physics;
 
-    // Track segments
-    this.segments = [];
-    this.segmentLength = 30; // Longer segments
-    this.segmentWidth = 10;
-    this.visibleSegments = 4; // More visible segments
+    // Runway properties
+    this.runwayWidth = 15;
+    this.runwayLength = 100;
 
-    this.createInitialSegments();
+    this.createRunway();
   }
 
-  createSegment(position) {
-    // Visual representation
-    const geometry = new THREE.BoxGeometry(
-      this.segmentWidth,
+  createRunway() {
+    // Create main runway
+    const runwayGeometry = new THREE.BoxGeometry(
+      this.runwayWidth,
       1,
-      this.segmentLength
+      this.runwayLength
     );
-    const material = new THREE.MeshPhongMaterial({
+    const runwayMaterial = new THREE.MeshPhongMaterial({
       color: 0x808080,
       roughness: 0.8,
     });
-    const mesh = new THREE.Mesh(geometry, material);
-    mesh.position.copy(position);
-    this.scene.scene.add(mesh);
+
+    const runway = new THREE.Mesh(runwayGeometry, runwayMaterial);
+    runway.position.set(0, -0.5, -this.runwayLength / 2); // Center the runway
+    this.scene.scene.add(runway);
 
     // Add side barriers
-    const barrierGeometry = new THREE.BoxGeometry(0.5, 2, this.segmentLength);
+    const barrierGeometry = new THREE.BoxGeometry(1, 2, this.runwayLength);
     const barrierMaterial = new THREE.MeshPhongMaterial({ color: 0x404040 });
 
+    // Left barrier
     const leftBarrier = new THREE.Mesh(barrierGeometry, barrierMaterial);
     leftBarrier.position.set(
-      position.x - (this.segmentWidth / 2 + 0.25),
-      position.y + 1,
-      position.z
+      -(this.runwayWidth / 2 + 0.5), // Half runway width + half barrier width
+      0.5, // Half barrier height
+      -this.runwayLength / 2
     );
 
+    // Right barrier
     const rightBarrier = new THREE.Mesh(barrierGeometry, barrierMaterial);
     rightBarrier.position.set(
-      position.x + (this.segmentWidth / 2 + 0.25),
-      position.y + 1,
-      position.z
+      this.runwayWidth / 2 + 0.5,
+      0.5,
+      -this.runwayLength / 2
     );
 
     this.scene.scene.add(leftBarrier);
     this.scene.scene.add(rightBarrier);
 
-    // Physics body for the track
-    const body = this.physics.createBox(
-      { x: this.segmentWidth, y: 1, z: this.segmentLength },
-      position,
-      0 // mass (0 = static)
-    );
-    this.physics.addBody(body);
-
-    // Physics bodies for barriers
-    const leftBarrierBody = this.physics.createBox(
-      { x: 0.5, y: 2, z: this.segmentLength },
-      leftBarrier.position,
-      0
-    );
-    const rightBarrierBody = this.physics.createBox(
-      { x: 0.5, y: 2, z: this.segmentLength },
-      rightBarrier.position,
-      0
-    );
-    this.physics.addBody(leftBarrierBody);
-    this.physics.addBody(rightBarrierBody);
-
-    return {
-      mesh,
-      body,
-      position,
-      barriers: {
-        left: { mesh: leftBarrier, body: leftBarrierBody },
-        right: { mesh: rightBarrier, body: rightBarrierBody },
-      },
-    };
+    // Add debug cube (green box) for reference
+    const cubeGeometry = new THREE.BoxGeometry(2, 2, 2);
+    const cubeMaterial = new THREE.MeshPhongMaterial({ color: 0x00ff00 });
+    const cube = new THREE.Mesh(cubeGeometry, cubeMaterial);
+    cube.position.set(0, 1, 0); // Position at start of runway
+    this.scene.scene.add(cube);
   }
 
-  createInitialSegments() {
-    for (let i = 0; i < this.visibleSegments; i++) {
-      const position = new THREE.Vector3(
-        0,
-        0, // Moved up to y=0
-        -i * this.segmentLength
-      );
-      this.segments.push(this.createSegment(position));
-    }
-  }
-
-  update(playerPosition) {
-    // Check if we need to create new segments
-    const lastSegment = this.segments[this.segments.length - 1];
-    if (-playerPosition.z > lastSegment.position.z - this.segmentLength) {
-      // Create new segment
-      const newPosition = new THREE.Vector3(
-        0,
-        -0.5,
-        lastSegment.position.z - this.segmentLength
-      );
-      this.segments.push(this.createSegment(newPosition));
-
-      // Remove old segment
-      if (this.segments.length > this.visibleSegments) {
-        const oldSegment = this.segments.shift();
-        this.scene.scene.remove(oldSegment.mesh);
-        this.physics.removeBody(oldSegment.body);
-
-        // Remove barriers
-        this.scene.scene.remove(oldSegment.barriers.left.mesh);
-        this.scene.scene.remove(oldSegment.barriers.right.mesh);
-        this.physics.removeBody(oldSegment.barriers.left.body);
-        this.physics.removeBody(oldSegment.barriers.right.body);
-      }
-    }
+  update() {
+    // No updates needed for now - runway is static
   }
 }

@@ -9,21 +9,23 @@ export class Scene {
     );
     this.renderer = new THREE.WebGLRenderer({ antialias: true });
 
-    // Add renderer to DOM
+    // Set up renderer
+    this.renderer.setSize(window.innerWidth, window.innerHeight);
     document.getElementById("app").appendChild(this.renderer.domElement);
 
-    // Set up camera position for better overhead view
-    this.camera.position.set(0, 15, 10);
-    this.camera.lookAt(0, 0, 0);
+    // Position camera to look down at the runway
+    this.camera.position.set(0, 20, 30);
+    this.camera.lookAt(0, 0, -20);
 
-    // Add better lighting
+    // Add lights
     const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
     const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
     directionalLight.position.set(10, 20, 10);
-    this.scene.add(ambientLight, directionalLight);
+    this.scene.add(ambientLight);
+    this.scene.add(directionalLight);
 
-    // Add a subtle background color
-    this.scene.background = new THREE.Color(0x87ceeb); // Sky blue
+    // Set sky blue background
+    this.scene.background = new THREE.Color(0x87ceeb);
 
     // Handle window resizing
     this.handleResize();
