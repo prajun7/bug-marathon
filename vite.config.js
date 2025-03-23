@@ -1,9 +1,11 @@
 /**
  * @type {import('vite').UserConfig}
  */
-export default {
-  base: "/minecraft-threejs-clone/",
+import { defineConfig } from "vite";
+
+export default defineConfig({
+  base: "/",
   build: {
     sourcemap: true,
   },
-};
+});
