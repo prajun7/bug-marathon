@@ -2,7 +2,7 @@ export class Scene {
   constructor() {
     this.scene = new THREE.Scene();
     this.camera = new THREE.PerspectiveCamera(
-      75,
+      60,
       window.innerWidth / window.innerHeight,
       0.1,
       1000
@@ -13,8 +13,8 @@ export class Scene {
     this.renderer.setSize(window.innerWidth, window.innerHeight);
     document.getElementById("app").appendChild(this.renderer.domElement);
 
-    // Position camera to look down at the runway
-    this.camera.position.set(0, 20, 30);
+    // Initial camera position
+    this.camera.position.set(0, 30, 50);
     this.camera.lookAt(0, 0, -20);
 
     // Add lights
@@ -28,14 +28,19 @@ export class Scene {
     this.scene.background = new THREE.Color(0x87ceeb);
 
     // Handle window resizing
-    this.handleResize();
-    window.addEventListener("resize", () => this.handleResize());
+    window.addEventListener("resize", () => {
+      this.renderer.setSize(window.innerWidth, window.innerHeight);
+      this.camera.aspect = window.innerWidth / window.innerHeight;
+      this.camera.updateProjectionMatrix();
+    });
   }
 
-  handleResize() {
-    this.renderer.setSize(window.innerWidth, window.innerHeight);
-    this.camera.aspect = window.innerWidth / window.innerHeight;
-    this.camera.updateProjectionMatrix();
+  updateCameraPosition(playerPosition) {
+    // Camera follows player from behind and above
+    this.camera.position.x = playerPosition.x;
+    this.camera.position.y = 30;
+    this.camera.position.z = playerPosition.z + 50;
+    this.camera.lookAt(playerPosition.x, 0, playerPosition.z - 20);
   }
 
   render() {
