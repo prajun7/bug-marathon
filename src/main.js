@@ -16,6 +16,8 @@ class Game {
   animate() {
     requestAnimationFrame(this.animate);
     this.player.update();
+    // Pass player position to environment for runway generation
+    this.environment.update(this.player.mesh.position);
     this.scene.render();
   }
 }

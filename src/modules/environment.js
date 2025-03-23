@@ -2,21 +2,24 @@ export class Environment {
   constructor(scene) {
     this.scene = scene;
 
-    // Calculate runway width based on camera FOV and position
+    // Runway properties
     const fov = this.scene.camera.fov * (Math.PI / 180);
-    const height = 2 * Math.tan(fov / 2) * 30; // 30 is camera height
-    this.runwayWidth = height * this.scene.camera.aspect * 0.8; // 80% of visible width
-    this.runwayLength = 1000; // Very long runway
+    const height = 2 * Math.tan(fov / 2) * 30;
+    this.runwayWidth = height * this.scene.camera.aspect * 0.8;
+    this.segmentLength = 100; // Length of each runway segment
+    this.visibleSegments = 15; // Number of segments to keep loaded
 
-    this.createRunway();
+    // Store all runway segments
+    this.segments = [];
+    this.createInitialSegments();
   }
 
-  createRunway() {
-    // Create main runway
+  createSegment(zPosition) {
+    // Create runway segment
     const runwayGeometry = new THREE.BoxGeometry(
       this.runwayWidth,
       1,
-      this.runwayLength
+      this.segmentLength
     );
     const runwayMaterial = new THREE.MeshPhongMaterial({
       color: 0x808080,
@@ -24,55 +27,92 @@ export class Environment {
     });
 
     const runway = new THREE.Mesh(runwayGeometry, runwayMaterial);
-    runway.position.set(0, -0.5, -this.runwayLength / 2);
+    runway.position.set(0, -0.5, zPosition - this.segmentLength / 2);
     this.scene.scene.add(runway);
 
     // Add side barriers
-    const barrierGeometry = new THREE.BoxGeometry(2, 4, this.runwayLength);
+    const barrierGeometry = new THREE.BoxGeometry(2, 4, this.segmentLength);
     const barrierMaterial = new THREE.MeshPhongMaterial({ color: 0x404040 });
 
-    // Left barrier
     const leftBarrier = new THREE.Mesh(barrierGeometry, barrierMaterial);
     leftBarrier.position.set(
       -(this.runwayWidth / 2 + 1),
       1.5,
-      -this.runwayLength / 2
+      zPosition - this.segmentLength / 2
     );
 
-    // Right barrier
     const rightBarrier = new THREE.Mesh(barrierGeometry, barrierMaterial);
     rightBarrier.position.set(
       this.runwayWidth / 2 + 1,
       1.5,
-      -this.runwayLength / 2
+      zPosition - this.segmentLength / 2
     );
 
     this.scene.scene.add(leftBarrier);
     this.scene.scene.add(rightBarrier);
 
-    // Add runway markings (stripes)
-    this.addRunwayMarkings();
+    // Add runway markings
+    const stripes = this.createStripes(zPosition);
+
+    return {
+      runway,
+      barriers: { left: leftBarrier, right: rightBarrier },
+      stripes,
+      zPosition,
+    };
   }
 
-  addRunwayMarkings() {
+  createStripes(zPosition) {
+    const stripes = [];
     const stripeWidth = 1;
     const stripeLength = 20;
     const stripeMaterial = new THREE.MeshPhongMaterial({ color: 0xffffff });
 
-    // Create stripes down the runway
-    for (let z = 0; z < this.runwayLength; z += 50) {
+    // Create stripes for this segment
+    for (let z = 0; z < this.segmentLength; z += 50) {
       const stripeGeometry = new THREE.BoxGeometry(
         stripeWidth,
         0.1,
         stripeLength
       );
       const stripe = new THREE.Mesh(stripeGeometry, stripeMaterial);
-      stripe.position.set(0, 0, -z);
+      stripe.position.set(0, 0, zPosition - z);
       this.scene.scene.add(stripe);
+      stripes.push(stripe);
+    }
+    return stripes;
+  }
+
+  createInitialSegments() {
+    for (let i = 0; i < this.visibleSegments; i++) {
+      const segment = this.createSegment(-i * this.segmentLength);
+      this.segments.push(segment);
     }
   }
 
-  update() {
-    // No updates needed for static runway
+  removeSegment(segment) {
+    this.scene.scene.remove(segment.runway);
+    this.scene.scene.remove(segment.barriers.left);
+    this.scene.scene.remove(segment.barriers.right);
+    segment.stripes.forEach((stripe) => this.scene.scene.remove(stripe));
+  }
+
+  update(playerPosition) {
+    // Check if we need to create new segments
+    const lastSegment = this.segments[this.segments.length - 1];
+    const distanceToLast = Math.abs(playerPosition.z - lastSegment.zPosition);
+
+    if (distanceToLast < this.segmentLength * 5) {
+      // Create new segment
+      const newZ = lastSegment.zPosition - this.segmentLength;
+      const newSegment = this.createSegment(newZ);
+      this.segments.push(newSegment);
+
+      // Remove old segment if we have too many
+      if (this.segments.length > this.visibleSegments) {
+        const oldSegment = this.segments.shift();
+        this.removeSegment(oldSegment);
+      }
+    }
   }
 }
