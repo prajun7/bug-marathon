@@ -20,49 +20,58 @@ export class Scene {
     this.scene.fog = new THREE.Fog(0x87ceeb, 100, 300);
 
     // Adjusted lighting for tech theme
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.4);
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
     this.scene.add(ambientLight);
 
     const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
-    directionalLight.position.set(100, 100, 50);
-    directionalLight.castShadow = true;
+    directionalLight.position.set(10, 20, 10);
     this.scene.add(directionalLight);
 
-    // Add some subtle colored lighting for tech feel
-    const blueLight = new THREE.PointLight(0x00ff00, 0.5, 100);
-    blueLight.position.set(20, 20, 20);
-    this.scene.add(blueLight);
+    // Add a helper grid for debugging
+    const gridHelper = new THREE.GridHelper(100, 20);
+    this.scene.add(gridHelper);
 
     // Initial camera position
-    this.camera.position.set(0, 25, 35);
-    this.camera.lookAt(0, 0, -20);
+    this.camera.position.set(0, 25, 40);
+    this.camera.lookAt(0, 0, 0);
 
     // Handle window resizing
     window.addEventListener("resize", () => {
-      this.renderer.setSize(window.innerWidth, window.innerHeight);
       this.camera.aspect = window.innerWidth / window.innerHeight;
       this.camera.updateProjectionMatrix();
+      this.renderer.setSize(window.innerWidth, window.innerHeight);
     });
 
-    // Add camera smoothing properties
-    this.cameraLerpFactor = 0.1;
-    this.currentLookAt = new THREE.Vector3(0, 0, -20);
+    // Camera smoothing
+    this.cameraTargetX = 0;
+    this.cameraTargetY = 20;
+    this.cameraTargetZ = 0;
+
+    this.cameraLookX = 0;
+    this.cameraLookY = 0;
+    this.cameraLookZ = -30;
   }
 
   updateCameraPosition(target) {
-    // Very slow smoothing for stability
-    const smoothingFactor = 0.05;
+    // Ultra-smooth camera easing
+    const positionEasing = 0.02;
+    const lookEasing = 0.01;
 
     // Smooth camera position update
-    this.camera.position.x +=
-      (target.x * 0.8 - this.camera.position.x) * smoothingFactor;
-    this.camera.position.y +=
-      (target.y - this.camera.position.y) * smoothingFactor;
-    this.camera.position.z +=
-      (target.z - this.camera.position.z) * smoothingFactor;
+    this.cameraTargetX +=
+      (target.x * 0.8 - this.cameraTargetX) * positionEasing;
+    this.cameraTargetY += (target.y - this.cameraTargetY) * positionEasing;
+    this.cameraTargetZ += (target.z - this.cameraTargetZ) * positionEasing;
 
-    // Fixed look at target for stability
-    this.camera.lookAt(target.x * 0.5, 0, target.z - 30);
+    this.camera.position.x = this.cameraTargetX;
+    this.camera.position.y = this.cameraTargetY;
+    this.camera.position.z = this.cameraTargetZ;
+
+    // Smooth camera look target
+    this.cameraLookX += (target.x * 0.5 - this.cameraLookX) * lookEasing;
+    this.cameraLookZ += (target.z - 30 - this.cameraLookZ) * lookEasing;
+
+    this.camera.lookAt(this.cameraLookX, 0, this.cameraLookZ);
   }
 
   render() {

@@ -3,57 +3,75 @@ export class Player {
     this.scene = scene;
     this.environment = environment;
 
-    // Movement settings
-    this.speed = 1;
-    this.isMovingLeft = false;
-    this.isMovingRight = false;
+    // Position tracking
+    this.xPosition = 0;
+    this.zPosition = -30;
 
-    // Position values
-    this.lanePosition = 0; // -1 = left, 0 = center, 1 = right
-    this.targetX = 0;
-    this.smoothingFactor = 0.1; // Slower smoothing for stability
+    // Movement constraints
+    this.moveSpeed = 2;
+    this.maxOffset = this.environment.roadWidth / 2 - 2;
+
+    // Camera smoothing
+    this.cameraX = 0;
+    this.cameraTargetX = 0;
+    this.smoothSpeed = 0.015; // Very small for extra smoothness
+
+    // Store previous positions for smoothing
+    this.previousCenterPoints = [];
+    this.maxPreviousPoints = 10;
 
     this.createPlayer();
     this.setupControls();
-
-    // For fixed segment tracking
-    this.currentSegmentIndex = 0;
   }
 
   createPlayer() {
-    const geometry = new THREE.BoxGeometry(2, 4, 2);
+    const geometry = new THREE.BoxGeometry(4, 8, 4);
     const material = new THREE.MeshPhongMaterial({
       color: 0x00ff00,
+      emissive: 0x00ff00,
+      emissiveIntensity: 0.2,
       shininess: 30,
     });
+
     this.mesh = new THREE.Mesh(geometry, material);
-    this.mesh.position.set(0, 2, 0);
+    this.mesh.position.set(0, 4, this.zPosition);
     this.scene.scene.add(this.mesh);
   }
 
   setupControls() {
-    // Track key state instead of direct movement
     document.addEventListener("keydown", (e) => {
-      if (e.key === "ArrowLeft" || e.key === "a") {
-        if (this.lanePosition > -1) {
-          this.lanePosition -= 0.5;
-        }
-      } else if (e.key === "ArrowRight" || e.key === "d") {
-        if (this.lanePosition < 1) {
-          this.lanePosition += 0.5;
-        }
+      const currentSegment = this.getCurrentSegment();
+      if (!currentSegment) return;
+
+      const roadCenterX = currentSegment.xPosition;
+
+      switch (e.key) {
+        case "ArrowLeft":
+        case "a":
+          const newLeftPos = this.xPosition - this.moveSpeed;
+          const leftDistance = Math.abs(newLeftPos - roadCenterX);
+          if (leftDistance < this.maxOffset) {
+            this.xPosition = newLeftPos;
+          }
+          break;
+
+        case "ArrowRight":
+        case "d":
+          const newRightPos = this.xPosition + this.moveSpeed;
+          const rightDistance = Math.abs(newRightPos - roadCenterX);
+          if (rightDistance < this.maxOffset) {
+            this.xPosition = newRightPos;
+          }
+          break;
       }
     });
   }
 
   getCurrentSegment() {
-    if (!this.environment.segments.length) return null;
-
-    const playerZ = this.mesh.position.z;
-    for (let segment of this.environment.segments) {
+    for (const segment of this.environment.segments) {
       if (
-        playerZ >= segment.zPosition - this.environment.segmentLength &&
-        playerZ <= segment.zPosition
+        this.zPosition >= segment.zPosition - this.environment.segmentLength &&
+        this.zPosition <= segment.zPosition
       ) {
         return segment;
       }
@@ -61,85 +79,82 @@ export class Player {
     return this.environment.segments[0];
   }
 
-  checkCollisions() {
-    // This will be implemented later
-    // Placeholder for future collision detection
-    /*
-    const playerBounds = new THREE.Box3().setFromObject(this.mesh);
-    
-    // Check if player is out of bounds (no rocks)
-    if (this.isOutOfBounds()) {
-        // Player will fall
+  getAverageCenterPoint() {
+    if (this.previousCenterPoints.length === 0) return null;
+
+    // Calculate weighted average of previous points
+    let totalX = 0;
+    let totalWeight = 0;
+
+    this.previousCenterPoints.forEach((point, index) => {
+      const weight = (index + 1) / this.previousCenterPoints.length;
+      totalX += point.x * weight;
+      totalWeight += weight;
+    });
+
+    return totalX / totalWeight;
+  }
+
+  updateCamera(roadCenterX) {
+    // Add current center point to history
+    this.previousCenterPoints.push({ x: roadCenterX });
+    if (this.previousCenterPoints.length > this.maxPreviousPoints) {
+      this.previousCenterPoints.shift();
     }
 
-    // Check rock collisions
-    this.environment.getCurrentSegment(this.position).barriers.forEach(rock => {
-        if (rock.userData.isBarrier) {
-            const rockBounds = new THREE.Box3().setFromObject(rock);
-            if (playerBounds.intersectsBox(rockBounds)) {
-                // Apply push force
-                const pushForce = rock.userData.pushForce;
-                // Push player back
-            }
-        }
-    });
-    */
+    // Get smoothed center point
+    const averageCenterX = this.getAverageCenterPoint() || roadCenterX;
+
+    // Predict future position based on road curve
+    const nextSegment = this.environment.segments.find(
+      (seg) => seg.zPosition < this.zPosition - this.environment.segmentLength
+    );
+    let predictedX = averageCenterX;
+    if (nextSegment) {
+      predictedX = (averageCenterX + nextSegment.xPosition) / 2;
+    }
+
+    // Super smooth camera movement
+    this.cameraTargetX = predictedX;
+    this.cameraX += (this.cameraTargetX - this.cameraX) * this.smoothSpeed;
+
+    // Update camera position with smoothed values
+    const cameraHeight = 20;
+    const cameraDistance = 35;
+
+    this.scene.camera.position.set(
+      this.cameraX,
+      cameraHeight,
+      this.zPosition + cameraDistance
+    );
+
+    // Smooth look-at point
+    const lookAtX = this.cameraX;
+    const lookAtZ = this.zPosition - 30;
+    const lookAtY = 0;
+
+    this.scene.camera.lookAt(lookAtX, lookAtY, lookAtZ);
   }
 
   update() {
-    // Move forward continuously
-    this.mesh.position.z -= this.speed;
+    const currentSegment = this.getCurrentSegment();
+    if (!currentSegment) return;
 
-    // Get current segment - only update segment when crossed boundary
-    if (this.environment.segments.length === 0) return;
+    const roadCenterX = currentSegment.xPosition;
 
-    const playerZ = this.mesh.position.z;
-    let segment = null;
-
-    // Find current segment based on z position
-    for (let i = 0; i < this.environment.segments.length; i++) {
-      const segmentZ = this.environment.segments[i].zPosition;
-      if (
-        playerZ >= segmentZ - this.environment.segmentLength &&
-        playerZ <= segmentZ
-      ) {
-        segment = this.environment.segments[i];
-        this.currentSegmentIndex = i;
-        break;
-      }
+    // Keep player on road
+    const distanceFromCenter = Math.abs(this.xPosition - roadCenterX);
+    if (distanceFromCenter > this.maxOffset) {
+      const direction = this.xPosition > roadCenterX ? 1 : -1;
+      this.xPosition = roadCenterX + this.maxOffset * direction;
     }
 
-    if (
-      !segment &&
-      this.currentSegmentIndex < this.environment.segments.length
-    ) {
-      segment = this.environment.segments[this.currentSegmentIndex];
-    }
+    // Update player position
+    this.mesh.position.x = this.xPosition;
+    this.mesh.position.z = this.zPosition;
+    this.mesh.rotation.y = currentSegment.angle;
 
-    if (!segment) return;
-
-    // Get road center at current position
-    const roadWidth = this.environment.roadWidth;
-    const xOffset = this.lanePosition * (roadWidth / 3); // Divide road into 3 lanes
-
-    // Simple way to get road center X (no tangent calculations)
-    this.targetX = segment.xPosition + xOffset;
-
-    // Smoothly move toward target X position
-    this.mesh.position.x +=
-      (this.targetX - this.mesh.position.x) * this.smoothingFactor;
-
-    // Very gradually rotate to match road angle
-    const targetRotation = segment.angle;
-    this.mesh.rotation.y += (targetRotation - this.mesh.rotation.y) * 0.05;
-
-    // Update camera using same smoothing principle
-    const cameraTarget = {
-      x: this.mesh.position.x,
-      y: this.mesh.position.y + 10,
-      z: this.mesh.position.z + 35,
-    };
-
-    this.scene.updateCameraPosition(cameraTarget);
+    // Update camera with enhanced smoothing
+    this.updateCamera(roadCenterX);
   }
 }

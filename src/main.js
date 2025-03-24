@@ -4,28 +4,33 @@ import { Player } from "./modules/player.js";
 
 class Game {
   constructor() {
+    console.log("Game initializing...");
+
     this.scene = new Scene();
     this.environment = new Environment(this.scene);
-    this.player = new Player(this.scene, this.environment);
 
-    // Start animation loop
+    // Create player immediately
+    this.player = new Player(this.scene, this.environment);
+    console.log("Player initialized");
+
     this.animate = this.animate.bind(this);
     this.animate();
   }
 
-  animate(time) {
+  animate() {
     requestAnimationFrame(this.animate);
 
-    // Use fixed time step for stability
-    const fixedDelta = 1 / 60;
+    if (this.player) {
+      this.player.update();
+    }
 
-    this.player.update();
-    this.environment.update(this.player.mesh.position);
+    this.environment.update();
     this.scene.render();
   }
 }
 
-// Start the game when the window loads
+// Create game instance when window loads
 window.addEventListener("load", () => {
+  console.log("Window loaded, creating game...");
   new Game();
 });

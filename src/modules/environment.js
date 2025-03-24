@@ -70,12 +70,7 @@ export class Environment {
     // Create smooth curve from points
     const curve = new THREE.CatmullRomCurve3(this.splinePoints);
 
-    // Get position and rotation from curve
-    const curvePoint = curve.getPoint(0.5);
-    const tangent = curve.getTangent(0.5);
-    const angle = Math.atan2(tangent.x, tangent.z);
-
-    // Create road using the same geometry as before
+    // Create road geometry
     const roadGeometry = new THREE.BoxGeometry(
       this.roadWidth,
       2,
@@ -86,18 +81,23 @@ export class Environment {
       shininess: 10,
     });
 
+    // Get position and rotation from curve
+    const curvePoint = curve.getPoint(0.5);
+    const tangent = curve.getTangent(0.5);
+    const angle = Math.atan2(tangent.x, tangent.z);
+
     const road = new THREE.Mesh(roadGeometry, roadMaterial);
     road.position.set(curvePoint.x, -1, zPosition);
     road.rotation.y = angle;
     this.scene.scene.add(road);
 
-    // Create barriers that exactly match the road's edges
+    // Create barriers along curve
     const barriers = this.createMatchingBarriers(road);
 
     return {
       road,
       barriers,
-      curve,
+      curve, // Important: Store the curve for player movement
       xPosition: curvePoint.x,
       zPosition,
       angle,
@@ -245,27 +245,41 @@ export class Environment {
     }
   }
 
-  update(playerPosition) {
-    if (!playerPosition) return;
+  update() {
+    // Move segments toward camera
+    const moveSpeed = 1;
 
-    const lastSegment = this.segments[this.segments.length - 1];
-    if (!lastSegment) return;
+    this.segments.forEach((segment) => {
+      segment.zPosition += moveSpeed;
+      segment.road.position.z += moveSpeed;
 
-    const newZ = lastSegment.zPosition - this.segmentLength;
+      segment.barriers.left.forEach((barrier) => {
+        barrier.position.z += moveSpeed;
+      });
+      segment.barriers.right.forEach((barrier) => {
+        barrier.position.z += moveSpeed;
+      });
+    });
 
-    if (Math.abs(playerPosition.z - newZ) < this.segmentLength * 3) {
-      const newSegment = this.createSegment(newZ);
-      this.segments.push(newSegment);
+    // Check if we need to add new segment
+    if (this.segments.length > 0) {
+      const firstSegment = this.segments[0];
+      if (firstSegment.zPosition > 100) {
+        // Remove old segment
+        this.scene.scene.remove(firstSegment.road);
+        firstSegment.barriers.left.forEach((b) => this.scene.scene.remove(b));
+        firstSegment.barriers.right.forEach((b) => this.scene.scene.remove(b));
+        this.segments.shift();
 
-      if (this.segments.length > this.visibleSegments) {
-        const oldSegment = this.segments.shift();
-        this.scene.scene.remove(oldSegment.road);
-        oldSegment.barriers.left.forEach((b) => this.scene.scene.remove(b));
-        oldSegment.barriers.right.forEach((b) => this.scene.scene.remove(b));
+        // Add new segment
+        const lastSegment = this.segments[this.segments.length - 1];
+        const newZ = lastSegment.zPosition - this.segmentLength;
+        const newSegment = this.createSegment(newZ);
+        this.segments.push(newSegment);
       }
     }
 
-    // Update clouds with player position
-    this.updateClouds(playerPosition);
+    // Update clouds
+    this.updateClouds({ x: 0, y: 10, z: 0 });
   }
 }
