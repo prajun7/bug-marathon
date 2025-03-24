@@ -5,12 +5,25 @@ export class Environment {
     // Road properties
     this.roadWidth = 25;
     this.segmentLength = 100;
-    this.visibleSegments = 10;
+    this.visibleSegments = 15;
+
+    // Curve control
+    this.currentX = 0;
+    this.currentZ = 0;
+    this.currentAngle = 0;
+    this.segments = [];
+
+    // Curve parameters
+    this.isCreatingCurve = false;
+    this.curveDirection = 1;
+    this.curveStrength = 0.02;
+    this.straightSegments = 0;
+    this.minStraightSegments = 5;
+    this.curveSegments = 0;
+    this.maxCurveSegments = 8;
 
     // Track current path
-    this.currentX = 0;
     this.targetX = 0;
-    this.segments = [];
 
     // Cloud properties
     this.clouds = [];
@@ -18,11 +31,8 @@ export class Environment {
     this.cloudSpawnInterval = 50;
     this.maxClouds = 80;
 
-    // Add rock properties
-    this.rockGeometries = this.createRockGeometries();
-
-    // Add stone wall properties
-    this.stoneGeometry = this.createStoneGeometry();
+    // Create basic stone geometry
+    this.stoneGeometry = new THREE.BoxGeometry(1, 0.5, 1);
 
     // Initial cloud creation
     this.createInitialClouds();
@@ -30,75 +40,88 @@ export class Environment {
   }
 
   createSegment(zPosition) {
-    // Smooth curve calculation
-    if (Math.random() < 0.1) {
-      this.targetX = (Math.random() - 0.5) * 30;
+    // Determine if we should start a curve
+    if (
+      !this.isCreatingCurve &&
+      this.straightSegments >= this.minStraightSegments
+    ) {
+      if (Math.random() < 0.3) {
+        // 30% chance to start a curve
+        this.isCreatingCurve = true;
+        this.curveDirection = Math.random() < 0.5 ? 1 : -1;
+        this.curveSegments = 0;
+        this.straightSegments = 0;
+      }
     }
-    this.currentX += (this.targetX - this.currentX) * 0.1;
 
-    // Create tech-themed road platform
-    const platformGeometry = new THREE.BoxGeometry(
+    // Handle curve creation
+    if (this.isCreatingCurve) {
+      this.curveSegments++;
+      this.currentAngle += this.curveDirection * this.curveStrength;
+
+      if (this.curveSegments >= this.maxCurveSegments) {
+        this.isCreatingCurve = false;
+        this.straightSegments = 0;
+      }
+    } else {
+      this.straightSegments++;
+    }
+
+    // Calculate next position
+    this.currentX += Math.sin(this.currentAngle) * this.segmentLength;
+    const nextZ = zPosition;
+
+    // Create road geometry
+    const roadGeometry = new THREE.BoxGeometry(
       this.roadWidth,
       2,
-      this.segmentLength
-    );
-    const platformMaterial = new THREE.MeshPhongMaterial({
-      // Alternating between dark gray and lighter blue-gray
-      color: Math.random() < 0.5 ? 0x2c3e50 : 0x34495e,
-      shininess: 60,
+      this.segmentLength + 1
+    ); // +1 for overlap
+    const roadMaterial = new THREE.MeshPhongMaterial({
+      color: 0x333333,
+      shininess: 10,
     });
-    const platform = new THREE.Mesh(platformGeometry, platformMaterial);
-    platform.position.set(this.currentX, -1, zPosition);
-    platform.castShadow = true;
-    platform.receiveShadow = true;
-    this.scene.scene.add(platform);
 
-    // Create barriers (walls)
-    const barriers = this.createBarriers(this.currentX, zPosition);
+    const road = new THREE.Mesh(roadGeometry, roadMaterial);
+    road.position.set(this.currentX, -1, nextZ);
+    road.rotation.y = this.currentAngle;
+    this.scene.scene.add(road);
+
+    // Add road markings (white lines)
+    const markingGeometry = new THREE.PlaneGeometry(1, this.segmentLength);
+    const markingMaterial = new THREE.MeshBasicMaterial({
+      color: 0xffffff,
+      side: THREE.DoubleSide,
+    });
+
+    // Center line
+    const centerLine = new THREE.Mesh(markingGeometry, markingMaterial);
+    centerLine.rotation.x = -Math.PI / 2;
+    centerLine.position.set(this.currentX, -0.9, nextZ);
+    centerLine.rotation.y = this.currentAngle;
+    this.scene.scene.add(centerLine);
+
+    // Create barriers
+    const barriers = this.createBarriers(this.currentX, nextZ);
 
     return {
-      platform,
+      road,
       barriers,
+      centerLine,
       xPosition: this.currentX,
-      zPosition,
+      zPosition: nextZ,
+      angle: this.currentAngle,
     };
-  }
-
-  createRockGeometries() {
-    // Create various rock shapes for reuse
-    const rocks = [];
-    for (let i = 0; i < 5; i++) {
-      const geometry = new THREE.IcosahedronGeometry(1, 0); // Base rock shape
-
-      // Randomly modify vertices to make rocks look different
-      const positions = geometry.attributes.position;
-      for (let j = 0; j < positions.count; j++) {
-        positions.setXYZ(
-          j,
-          positions.getX(j) * (1 + Math.random() * 0.4),
-          positions.getY(j) * (1 + Math.random() * 0.4),
-          positions.getZ(j) * (1 + Math.random() * 0.4)
-        );
-      }
-      rocks.push(geometry);
-    }
-    return rocks;
-  }
-
-  createStoneGeometry() {
-    // Create a basic stone block shape
-    return new THREE.BoxGeometry(1, 0.5, 1); // Height is half the width for proper stone block proportions
   }
 
   createBarriers(xPosition, zPosition) {
     const barriers = { left: [], right: [] };
 
-    // Random chance for this segment to have walls (70% chance of having walls)
+    // Random chance for walls
     if (Math.random() < 0.3) {
-      return barriers; // No walls for this segment
+      return barriers;
     }
 
-    // Random chance for each side
     const hasLeftWall = Math.random() < 0.6;
     const hasRightWall = Math.random() < 0.6;
 
@@ -114,42 +137,41 @@ export class Environment {
 
   createStoneWall(barrierArray, xPosition, zPosition, side) {
     const stoneMaterial = new THREE.MeshPhongMaterial({
-      color: 0x707070, // Back to original gray color
+      color: 0x707070,
       roughness: 0.8,
       metalness: 0.2,
       flatShading: true,
     });
 
-    // Wall parameters
-    const wallHeight = 3; // Height in stone layers
+    const wallHeight = 3;
     const stoneWidth = 1;
     const stoneHeight = 0.5;
     const stoneDepth = 1;
 
-    // Create the wall along the segment
     for (let z = 0; z < this.segmentLength; z += stoneDepth) {
       for (let y = 0; y < wallHeight; y++) {
-        // Offset every other layer for brick pattern
         const xOffset = (y % 2) * (stoneWidth / 2);
 
         const stone = new THREE.Mesh(this.stoneGeometry, stoneMaterial);
 
-        // Position the stone in the wall
-        stone.position.set(
-          xPosition + side * (this.roadWidth / 2 + 0.5) + xOffset,
-          y * stoneHeight,
-          zPosition - z
-        );
+        // Position stones along curve
+        const angleOffset = this.currentAngle;
+        const xPos =
+          xPosition + side * (this.roadWidth / 2 + 0.5) * Math.cos(angleOffset);
+        const zPos =
+          zPosition -
+          z +
+          side * (this.roadWidth / 2 + 0.5) * Math.sin(angleOffset);
 
-        // Add slight random rotation and position variation for natural look
-        stone.rotation.y = (Math.random() - 0.5) * 0.1;
+        stone.position.set(xPos + xOffset, y * stoneHeight, zPos);
+
+        stone.rotation.y = angleOffset + (Math.random() - 0.5) * 0.1;
         stone.position.x += (Math.random() - 0.5) * 0.1;
         stone.position.y += (Math.random() - 0.5) * 0.05;
 
         this.scene.scene.add(stone);
         barrierArray.push(stone);
 
-        // Add collision data
         stone.userData.isBarrier = true;
         stone.userData.pushForce = 15;
       }
@@ -256,24 +278,28 @@ export class Environment {
   }
 
   update(playerPosition) {
-    // Update clouds with player position
-    this.updateClouds(playerPosition);
-
     // Check if we need new segments
     const lastSegment = this.segments[this.segments.length - 1];
-    const distanceToLast = Math.abs(playerPosition.z - lastSegment.zPosition);
+    if (!lastSegment) return;
 
-    if (distanceToLast < this.segmentLength * 2) {
-      const newZ = lastSegment.zPosition - this.segmentLength;
+    const newZ = lastSegment.zPosition - this.segmentLength;
+
+    // Create new segment
+    if (Math.abs(playerPosition.z - newZ) < this.segmentLength * 3) {
       const newSegment = this.createSegment(newZ);
       this.segments.push(newSegment);
 
+      // Remove old segments
       if (this.segments.length > this.visibleSegments) {
         const oldSegment = this.segments.shift();
-        this.scene.scene.remove(oldSegment.platform);
+        this.scene.scene.remove(oldSegment.road);
+        this.scene.scene.remove(oldSegment.centerLine);
         oldSegment.barriers.left.forEach((b) => this.scene.scene.remove(b));
         oldSegment.barriers.right.forEach((b) => this.scene.scene.remove(b));
       }
     }
+
+    // Update clouds with player position
+    this.updateClouds(playerPosition);
   }
 }
