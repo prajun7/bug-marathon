@@ -32,8 +32,8 @@ export class Environment {
     this.obstacles = [];
     this.obstacleSpawnDistance = 100;
     this.lastObstacleZ = -50;
-    this.minObstacleSpacing = 30;
-    this.maxObstacleSpacing = 50;
+    this.minObstacleSpacing = 50;
+    this.maxObstacleSpacing = 100;
 
     // Initialize
     this.createInitialSegments();
@@ -307,17 +307,34 @@ export class Environment {
       this.minObstacleSpacing -
       Math.random() * (this.maxObstacleSpacing - this.minObstacleSpacing);
 
-    const x = (Math.random() - 0.5) * (this.roadWidth - 8); // Random position across road
+    const x = (Math.random() - 0.5) * (this.roadWidth - 8);
 
-    const geometry = new THREE.BoxGeometry(6, 6, 6);
-    const material = new THREE.MeshPhongMaterial({
-      color: 0xff0000,
-      emissive: 0xff0000,
-      emissiveIntensity: 0.2,
-    });
+    // Randomly choose obstacle type
+    const obstacleType = Math.random() < 0.5 ? "cube" : "sphere";
+    let mesh;
 
-    const mesh = new THREE.Mesh(geometry, material);
-    mesh.position.set(x, 3, z); // Position above road
+    if (obstacleType === "cube") {
+      const geometry = new THREE.BoxGeometry(6, 6, 6);
+      const material = new THREE.MeshPhongMaterial({
+        color: 0xff0000,
+        emissive: 0xff0000,
+        emissiveIntensity: 0.2,
+      });
+      mesh = new THREE.Mesh(geometry, material);
+    } else {
+      const geometry = new THREE.SphereGeometry(4, 16, 16);
+      const material = new THREE.MeshPhongMaterial({
+        color: 0xff6600,
+        emissive: 0xff6600,
+        emissiveIntensity: 0.2,
+        metalness: 0.5,
+        roughness: 0.5,
+      });
+      mesh = new THREE.Mesh(geometry, material);
+    }
+
+    mesh.position.set(x, obstacleType === "cube" ? 3 : 4, z);
+    mesh.userData.type = obstacleType;
 
     this.scene.scene.add(mesh);
     this.obstacles.push({ mesh });
@@ -326,7 +343,11 @@ export class Environment {
 
   checkObstacleCollisions(player) {
     for (const obstacle of this.obstacles) {
-      // Simple box collision check
+      const isSphere = obstacle.mesh.userData.type === "sphere";
+
+      // Adjust collision box based on obstacle type
+      const obstacleSize = isSphere ? 4 : 3;
+
       const playerBox = {
         minX: player.mesh.position.x - 2,
         maxX: player.mesh.position.x + 2,
@@ -337,16 +358,16 @@ export class Environment {
       };
 
       const obstacleBox = {
-        minX: obstacle.mesh.position.x - 3,
-        maxX: obstacle.mesh.position.x + 3,
-        minY: obstacle.mesh.position.y - 3,
-        maxY: obstacle.mesh.position.y + 3,
-        minZ: obstacle.mesh.position.z - 3,
-        maxZ: obstacle.mesh.position.z + 3,
+        minX: obstacle.mesh.position.x - obstacleSize,
+        maxX: obstacle.mesh.position.x + obstacleSize,
+        minY: obstacle.mesh.position.y - obstacleSize,
+        maxY: obstacle.mesh.position.y + obstacleSize,
+        minZ: obstacle.mesh.position.z - obstacleSize,
+        maxZ: obstacle.mesh.position.z + obstacleSize,
       };
 
       if (this.checkBoxCollision(playerBox, obstacleBox)) {
-        return true; // Collision detected
+        return true;
       }
     }
     return false;
@@ -364,8 +385,8 @@ export class Environment {
   }
 
   spawnInitialObstacles() {
-    // Spawn first few obstacles
-    for (let i = 0; i < 5; i++) {
+    // Spawn just 3 initial obstacles
+    for (let i = 0; i < 3; i++) {
       this.spawnObstacle();
     }
   }
