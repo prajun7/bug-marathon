@@ -42,11 +42,39 @@ export class Player {
     });
   }
 
-  update() {
+  checkCollisions() {
+    // This will be implemented later
+    // Placeholder for future collision detection
+    /*
+    const playerBounds = new THREE.Box3().setFromObject(this.mesh);
+    
+    // Check if player is out of bounds (no rocks)
+    if (this.isOutOfBounds()) {
+        // Player will fall
+    }
+
+    // Check rock collisions
+    this.environment.getCurrentSegment(this.position).barriers.forEach(rock => {
+        if (rock.userData.isBarrier) {
+            const rockBounds = new THREE.Box3().setFromObject(rock);
+            if (playerBounds.intersectsBox(rockBounds)) {
+                // Apply push force
+                const pushForce = rock.userData.pushForce;
+                // Push player back
+            }
+        }
+    });
+    */
+  }
+
+  update(deltaTime) {
     // Move forward continuously
     this.mesh.position.z -= this.speed;
 
     // Update camera to follow player
     this.scene.updateCameraPosition(this.mesh.position);
+
+    // Add this line when ready to implement collisions
+    // this.checkCollisions();
   }
 }

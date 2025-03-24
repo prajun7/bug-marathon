@@ -18,6 +18,9 @@ export class Environment {
     this.cloudSpawnInterval = 50;
     this.maxClouds = 80;
 
+    // Add rock properties
+    this.rockGeometries = this.createRockGeometries();
+
     // Initial cloud creation
     this.createInitialClouds();
     this.createInitialSegments();
@@ -47,7 +50,7 @@ export class Environment {
     platform.receiveShadow = true;
     this.scene.scene.add(platform);
 
-    // Create barriers (rails)
+    // Create barriers (rocks)
     const barriers = this.createBarriers(this.currentX, zPosition);
 
     return {
@@ -58,88 +61,99 @@ export class Environment {
     };
   }
 
+  createRockGeometries() {
+    // Create various rock shapes for reuse
+    const rocks = [];
+    for (let i = 0; i < 5; i++) {
+      const geometry = new THREE.IcosahedronGeometry(1, 0); // Base rock shape
+
+      // Randomly modify vertices to make rocks look different
+      const positions = geometry.attributes.position;
+      for (let j = 0; j < positions.count; j++) {
+        positions.setXYZ(
+          j,
+          positions.getX(j) * (1 + Math.random() * 0.4),
+          positions.getY(j) * (1 + Math.random() * 0.4),
+          positions.getZ(j) * (1 + Math.random() * 0.4)
+        );
+      }
+      rocks.push(geometry);
+    }
+    return rocks;
+  }
+
   createBarriers(xPosition, zPosition) {
     const barriers = { left: [], right: [] };
 
-    // Random chance for each side to have barriers
-    const hasLeftBarrier = Math.random() < 0.7; // 70% chance for left barrier
-    const hasRightBarrier = Math.random() < 0.7; // 70% chance for right barrier
+    // Random chance for this segment to have any rocks (30% chance of no rocks)
+    if (Math.random() < 0.3) {
+      return barriers; // No rocks for this segment
+    }
 
-    // Only create barriers if the side should have them
-    if (!hasLeftBarrier && !hasRightBarrier) {
-      // Ensure at least one side has barriers for safety
-      const forcedSide = Math.random() < 0.5 ? "left" : "right";
-      if (forcedSide === "left") {
-        this.createSideBarrier(barriers.left, xPosition, zPosition, -1);
-      } else {
-        this.createSideBarrier(barriers.right, xPosition, zPosition, 1);
-      }
-    } else {
-      if (hasLeftBarrier) {
-        this.createSideBarrier(barriers.left, xPosition, zPosition, -1);
-      }
-      if (hasRightBarrier) {
-        this.createSideBarrier(barriers.right, xPosition, zPosition, 1);
-      }
+    // Random chance for each side
+    const hasLeftRocks = Math.random() < 0.6;
+    const hasRightRocks = Math.random() < 0.6;
+
+    if (hasLeftRocks) {
+      this.createRockBarrier(barriers.left, xPosition, zPosition, -1);
+    }
+    if (hasRightRocks) {
+      this.createRockBarrier(barriers.right, xPosition, zPosition, 1);
     }
 
     return barriers;
   }
 
-  createSideBarrier(barrierArray, xPosition, zPosition, side) {
-    // Create tech-themed rails
-    const railGeometry = new THREE.CylinderGeometry(
-      0.3,
-      0.3,
-      this.segmentLength,
-      8
-    );
-    const railMaterial = new THREE.MeshPhongMaterial({
-      color: 0x00ff00, // Matrix-style green
-      shininess: 70,
-      emissive: 0x003300,
+  createRockBarrier(barrierArray, xPosition, zPosition, side) {
+    const rockMaterial = new THREE.MeshPhongMaterial({
+      color: 0x707070, // Gray color for rocks
+      roughness: 0.8, // Make it look rough
+      metalness: 0.2,
+      flatShading: true, // Give it a more jagged appearance
     });
 
-    // Random number of horizontal rails (1 to 3)
-    const railCount = Math.floor(Math.random() * 3) + 1;
+    // Create a group of rocks along the segment
+    const spacing = 8; // Space between rock groups
+    for (let z = 0; z < this.segmentLength; z += spacing) {
+      // Random chance to skip this rock group
+      if (Math.random() < 0.3) continue;
 
-    // Create horizontal rails
-    for (let height = 0; height < railCount; height++) {
-      const rail = new THREE.Mesh(railGeometry, railMaterial);
-      rail.rotation.x = Math.PI / 2;
-      rail.position.set(
-        xPosition + side * (this.roadWidth / 2 + 0.5),
-        height,
-        zPosition
-      );
-      this.scene.scene.add(rail);
-      barrierArray.push(rail);
-    }
+      // Create a cluster of rocks at this position
+      const rockCount = Math.floor(Math.random() * 3) + 2; // 2-4 rocks per cluster
+      for (let i = 0; i < rockCount; i++) {
+        const rockGeometry =
+          this.rockGeometries[
+            Math.floor(Math.random() * this.rockGeometries.length)
+          ];
+        const rock = new THREE.Mesh(rockGeometry, rockMaterial);
 
-    // Random post spacing
-    const postSpacing = Math.random() < 0.5 ? 10 : 20; // Either dense or sparse posts
+        // Random size for each rock
+        const scale = Math.random() * 1.5 + 1;
+        rock.scale.set(scale, scale * 1.5, scale);
 
-    // Vertical posts
-    const postGeometry = new THREE.CylinderGeometry(0.3, 0.3, railCount, 8);
-    const postMaterial = new THREE.MeshPhongMaterial({
-      color: 0x1abc9c,
-      shininess: 70,
-      emissive: 0x0f5c4b,
-    });
+        // Position within the cluster
+        rock.position.set(
+          xPosition +
+            side * (this.roadWidth / 2 + 1) +
+            (Math.random() - 0.5) * 2,
+          scale - 1,
+          zPosition - z + (Math.random() - 0.5) * 2
+        );
 
-    // Add posts with random spacing
-    for (let z = 0; z < this.segmentLength; z += postSpacing) {
-      // Random chance to skip a post
-      if (Math.random() < 0.2) continue; // 20% chance to skip a post
+        // Random rotation
+        rock.rotation.set(
+          Math.random() * Math.PI,
+          Math.random() * Math.PI,
+          Math.random() * Math.PI
+        );
 
-      const post = new THREE.Mesh(postGeometry, postMaterial);
-      post.position.set(
-        xPosition + side * (this.roadWidth / 2 + 0.5),
-        railCount / 2,
-        zPosition - z
-      );
-      this.scene.scene.add(post);
-      barrierArray.push(post);
+        this.scene.scene.add(rock);
+        barrierArray.push(rock);
+
+        // Add collision data to the rock for future implementation
+        rock.userData.isBarrier = true;
+        rock.userData.pushForce = 10;
+      }
     }
   }
 
