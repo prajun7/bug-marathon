@@ -43,13 +43,26 @@ export class Scene {
       this.camera.aspect = window.innerWidth / window.innerHeight;
       this.camera.updateProjectionMatrix();
     });
+
+    // Add camera smoothing properties
+    this.cameraLerpFactor = 0.1;
+    this.currentLookAt = new THREE.Vector3(0, 0, -20);
   }
 
-  updateCameraPosition(playerPosition) {
-    // Smooth camera follow
-    this.camera.position.x = playerPosition.x * 0.8;
-    this.camera.position.z = playerPosition.z + 35;
-    this.camera.lookAt(playerPosition.x * 0.5, 0, playerPosition.z - 30);
+  updateCameraPosition(target) {
+    // Very slow smoothing for stability
+    const smoothingFactor = 0.05;
+
+    // Smooth camera position update
+    this.camera.position.x +=
+      (target.x * 0.8 - this.camera.position.x) * smoothingFactor;
+    this.camera.position.y +=
+      (target.y - this.camera.position.y) * smoothingFactor;
+    this.camera.position.z +=
+      (target.z - this.camera.position.z) * smoothingFactor;
+
+    // Fixed look at target for stability
+    this.camera.lookAt(target.x * 0.5, 0, target.z - 30);
   }
 
   render() {
