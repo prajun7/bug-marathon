@@ -15,11 +15,7 @@ export class Scene {
     this.renderer.shadowMap.enabled = true;
     document.getElementById("app").appendChild(this.renderer.domElement);
 
-    // Restore original bright blue sky color
-    this.scene.background = new THREE.Color(0x87ceeb); // Bright sky blue
-    this.scene.fog = new THREE.Fog(0x87ceeb, 100, 300);
-
-    // Adjusted lighting for tech theme
+    // Better lighting
     const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
     this.scene.add(ambientLight);
 
@@ -27,13 +23,12 @@ export class Scene {
     directionalLight.position.set(10, 20, 10);
     this.scene.add(directionalLight);
 
-    // Add a helper grid for debugging
-    const gridHelper = new THREE.GridHelper(100, 20);
-    this.scene.add(gridHelper);
+    // Sky color
+    this.scene.background = new THREE.Color(0x87ceeb);
 
     // Initial camera position
-    this.camera.position.set(0, 25, 40);
-    this.camera.lookAt(0, 0, 0);
+    this.camera.position.set(0, 20, 15);
+    this.camera.lookAt(0, 0, -30);
 
     // Handle window resizing
     window.addEventListener("resize", () => {

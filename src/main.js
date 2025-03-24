@@ -20,11 +20,14 @@ class Game {
   animate() {
     requestAnimationFrame(this.animate);
 
-    if (this.player) {
-      this.player.update();
-    }
+    // Update player first
+    this.player.update();
 
-    this.environment.update();
+    // Pass player position to environment
+    const playerPosition = this.player.mesh.position;
+    this.environment.update(playerPosition);
+    this.environment.updateClouds(playerPosition);
+
     this.scene.render();
   }
 }
