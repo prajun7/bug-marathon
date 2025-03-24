@@ -91,6 +91,7 @@ export class Player {
     this.createRespawnText();
     this.createScoreDisplay();
     this.createHighScoreDisplay();
+    this.createControlsDisplay();
   }
 
   getCurrentSegment() {
@@ -204,6 +205,30 @@ export class Player {
     document.body.appendChild(highScoreDiv);
     this.highScoreDisplay = highScoreDiv;
     this.updateHighScoreDisplay();
+  }
+
+  createControlsDisplay() {
+    const controlsDiv = document.createElement("div");
+    controlsDiv.style.position = "absolute";
+    controlsDiv.style.top = "120px"; // Adjusted position to avoid overlap
+    controlsDiv.style.left = "20px"; // Align with the score display
+    controlsDiv.style.fontSize = "18px";
+    controlsDiv.style.color = "white";
+    controlsDiv.style.fontFamily = "Arial, sans-serif";
+    controlsDiv.style.padding = "10px";
+    controlsDiv.style.backgroundColor = "rgba(0, 0, 0, 0.5)";
+    controlsDiv.style.borderRadius = "5px";
+    controlsDiv.style.lineHeight = "1.5";
+    controlsDiv.id = "controlsDisplay";
+    document.body.appendChild(controlsDiv);
+
+    // Set the content of the controls display
+    controlsDiv.innerHTML = `
+        <strong>Controls:</strong><br>
+        <span> A/D - Move Left/Right </span><br>
+        <span>SPACE - Jump</span><br>
+        <span>S - Slide</span><br>
+    `;
   }
 
   updateScoreDisplay() {
