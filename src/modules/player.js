@@ -2,21 +2,24 @@ export class Player {
   constructor(scene) {
     this.scene = scene;
 
-    // Player settings
-    this.speed = 0.5;
-    this.lateralSpeed = 0.8;
+    // Reduced speed settings
+    this.speed = 0.25; // Halved from 0.5
+    this.lateralSpeed = 0.4; // Halved from 0.8
 
     this.createPlayer();
     this.setupControls();
   }
 
   createPlayer() {
-    // Create a simple player cube
+    // Make player more visible
     const geometry = new THREE.BoxGeometry(2, 4, 2);
-    const material = new THREE.MeshPhongMaterial({ color: 0x00ff00 });
+    const material = new THREE.MeshPhongMaterial({
+      color: 0x00ff00,
+      shininess: 30,
+    });
     this.mesh = new THREE.Mesh(geometry, material);
 
-    // Start position
+    // Adjust starting position
     this.mesh.position.set(0, 2, 0);
     this.scene.scene.add(this.mesh);
   }

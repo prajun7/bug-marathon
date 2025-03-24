@@ -5,9 +5,9 @@ export class Environment {
     // Runway properties
     const fov = this.scene.camera.fov * (Math.PI / 180);
     const height = 2 * Math.tan(fov / 2) * 30;
-    this.runwayWidth = height * this.scene.camera.aspect * 0.8;
-    this.segmentLength = 100; // Length of each runway segment
-    this.visibleSegments = 15; // Number of segments to keep loaded
+    this.runwayWidth = height * this.scene.camera.aspect * 0.7; // Slightly narrower
+    this.segmentLength = 80;
+    this.visibleSegments = 12;
 
     // Store all runway segments
     this.segments = [];
@@ -15,72 +15,79 @@ export class Environment {
   }
 
   createSegment(zPosition) {
-    // Create runway segment
+    // Create textured runway
     const runwayGeometry = new THREE.BoxGeometry(
       this.runwayWidth,
       1,
       this.segmentLength
     );
     const runwayMaterial = new THREE.MeshPhongMaterial({
-      color: 0x808080,
+      color: 0x505050,
       roughness: 0.8,
+      metalness: 0.2,
     });
 
     const runway = new THREE.Mesh(runwayGeometry, runwayMaterial);
     runway.position.set(0, -0.5, zPosition - this.segmentLength / 2);
+    runway.receiveShadow = true;
     this.scene.scene.add(runway);
 
-    // Add side barriers
-    const barrierGeometry = new THREE.BoxGeometry(2, 4, this.segmentLength);
-    const barrierMaterial = new THREE.MeshPhongMaterial({ color: 0x404040 });
+    // Create decorated barriers
+    const barrierGeometry = new THREE.BoxGeometry(2, 6, this.segmentLength);
+    const barrierMaterial = new THREE.MeshPhongMaterial({
+      color: 0x505050,
+      roughness: 0.7,
+      metalness: 0.3,
+    });
 
-    const leftBarrier = new THREE.Mesh(barrierGeometry, barrierMaterial);
-    leftBarrier.position.set(
-      -(this.runwayWidth / 2 + 1),
-      1.5,
-      zPosition - this.segmentLength / 2
-    );
+    // Add temple-like decorations on barriers
+    const decorationSpacing = 20;
+    const decorations = [];
 
-    const rightBarrier = new THREE.Mesh(barrierGeometry, barrierMaterial);
-    rightBarrier.position.set(
-      this.runwayWidth / 2 + 1,
-      1.5,
-      zPosition - this.segmentLength / 2
-    );
+    for (let z = 0; z < this.segmentLength; z += decorationSpacing) {
+      const leftDecoration = this.createDecoration();
+      leftDecoration.position.set(
+        -(this.runwayWidth / 2 + 1),
+        3,
+        zPosition - z
+      );
 
-    this.scene.scene.add(leftBarrier);
-    this.scene.scene.add(rightBarrier);
+      const rightDecoration = this.createDecoration();
+      rightDecoration.position.set(this.runwayWidth / 2 + 1, 3, zPosition - z);
 
-    // Add runway markings
-    const stripes = this.createStripes(zPosition);
+      decorations.push(leftDecoration, rightDecoration);
+      this.scene.scene.add(leftDecoration, rightDecoration);
+    }
+
+    // Add ground texture beyond runway
+    const groundGeometry = new THREE.PlaneGeometry(200, this.segmentLength);
+    const groundMaterial = new THREE.MeshPhongMaterial({
+      color: 0x285728, // Dark grass color
+      side: THREE.DoubleSide,
+    });
+    const ground = new THREE.Mesh(groundGeometry, groundMaterial);
+    ground.rotation.x = -Math.PI / 2;
+    ground.position.set(0, -0.6, zPosition - this.segmentLength / 2);
+    this.scene.scene.add(ground);
 
     return {
       runway,
-      barriers: { left: leftBarrier, right: rightBarrier },
-      stripes,
+      decorations,
+      ground,
       zPosition,
     };
   }
 
-  createStripes(zPosition) {
-    const stripes = [];
-    const stripeWidth = 1;
-    const stripeLength = 20;
-    const stripeMaterial = new THREE.MeshPhongMaterial({ color: 0xffffff });
-
-    // Create stripes for this segment
-    for (let z = 0; z < this.segmentLength; z += 50) {
-      const stripeGeometry = new THREE.BoxGeometry(
-        stripeWidth,
-        0.1,
-        stripeLength
-      );
-      const stripe = new THREE.Mesh(stripeGeometry, stripeMaterial);
-      stripe.position.set(0, 0, zPosition - z);
-      this.scene.scene.add(stripe);
-      stripes.push(stripe);
-    }
-    return stripes;
+  createDecoration() {
+    // Create temple-like column decoration
+    const geometry = new THREE.CylinderGeometry(0.5, 0.5, 8, 8);
+    const material = new THREE.MeshPhongMaterial({
+      color: 0x808080,
+      roughness: 0.8,
+    });
+    const decoration = new THREE.Mesh(geometry, material);
+    decoration.castShadow = true;
+    return decoration;
   }
 
   createInitialSegments() {
@@ -92,9 +99,8 @@ export class Environment {
 
   removeSegment(segment) {
     this.scene.scene.remove(segment.runway);
-    this.scene.scene.remove(segment.barriers.left);
-    this.scene.scene.remove(segment.barriers.right);
-    segment.stripes.forEach((stripe) => this.scene.scene.remove(stripe));
+    this.scene.scene.remove(segment.ground);
+    segment.decorations.forEach((dec) => this.scene.scene.remove(dec));
   }
 
   update(playerPosition) {

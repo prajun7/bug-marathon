@@ -2,30 +2,32 @@ export class Scene {
   constructor() {
     this.scene = new THREE.Scene();
     this.camera = new THREE.PerspectiveCamera(
-      60,
+      70,
       window.innerWidth / window.innerHeight,
       0.1,
       1000
     );
-    this.renderer = new THREE.WebGLRenderer({ antialias: true });
+    this.renderer = new THREE.WebGLRenderer({
+      antialias: true,
+      shadowMap: { enabled: true },
+    });
 
-    // Set up renderer
     this.renderer.setSize(window.innerWidth, window.innerHeight);
     document.getElementById("app").appendChild(this.renderer.domElement);
+
+    // Enable shadows
+    this.renderer.shadowMap.enabled = true;
+
+    // Better lighting setup
+    this.setupLighting();
+
+    // Temple Run-like environment color
+    this.scene.background = new THREE.Color(0x87ceeb);
+    this.scene.fog = new THREE.Fog(0x87ceeb, 50, 150);
 
     // Initial camera position
     this.camera.position.set(0, 30, 50);
     this.camera.lookAt(0, 0, -20);
-
-    // Add lights
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
-    const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
-    directionalLight.position.set(10, 20, 10);
-    this.scene.add(ambientLight);
-    this.scene.add(directionalLight);
-
-    // Set sky blue background
-    this.scene.background = new THREE.Color(0x87ceeb);
 
     // Handle window resizing
     window.addEventListener("resize", () => {
@@ -35,12 +37,43 @@ export class Scene {
     });
   }
 
+  setupLighting() {
+    // Ambient light for overall visibility
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+    this.scene.add(ambientLight);
+
+    // Main directional light with shadows
+    const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+    directionalLight.position.set(-10, 50, 20);
+    directionalLight.castShadow = true;
+    directionalLight.shadow.camera.near = 1;
+    directionalLight.shadow.camera.far = 200;
+    directionalLight.shadow.camera.left = -50;
+    directionalLight.shadow.camera.right = 50;
+    directionalLight.shadow.camera.top = 50;
+    directionalLight.shadow.camera.bottom = -50;
+    directionalLight.shadow.mapSize.width = 2048;
+    directionalLight.shadow.mapSize.height = 2048;
+    this.scene.add(directionalLight);
+  }
+
   updateCameraPosition(playerPosition) {
-    // Camera follows player from behind and above
-    this.camera.position.x = playerPosition.x;
-    this.camera.position.y = 30;
-    this.camera.position.z = playerPosition.z + 50;
-    this.camera.lookAt(playerPosition.x, 0, playerPosition.z - 20);
+    // Temple Run-like camera positioning
+    const cameraHeight = 15;
+    const cameraDistance = 25;
+    const lookAheadDistance = 20;
+
+    // Position camera behind and above player
+    this.camera.position.x = playerPosition.x * 0.8; // Smooth out lateral movement
+    this.camera.position.y = cameraHeight;
+    this.camera.position.z = playerPosition.z + cameraDistance;
+
+    // Look ahead of the player
+    this.camera.lookAt(
+      playerPosition.x * 0.5, // Smooth camera rotation on turns
+      playerPosition.y + 2, // Look slightly above player
+      playerPosition.z - lookAheadDistance
+    );
   }
 
   render() {
