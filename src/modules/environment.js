@@ -21,6 +21,9 @@ export class Environment {
     // Add rock properties
     this.rockGeometries = this.createRockGeometries();
 
+    // Add stone wall properties
+    this.stoneGeometry = this.createStoneGeometry();
+
     // Initial cloud creation
     this.createInitialClouds();
     this.createInitialSegments();
@@ -50,7 +53,7 @@ export class Environment {
     platform.receiveShadow = true;
     this.scene.scene.add(platform);
 
-    // Create barriers (rocks)
+    // Create barriers (walls)
     const barriers = this.createBarriers(this.currentX, zPosition);
 
     return {
@@ -82,77 +85,73 @@ export class Environment {
     return rocks;
   }
 
+  createStoneGeometry() {
+    // Create a basic stone block shape
+    return new THREE.BoxGeometry(1, 0.5, 1); // Height is half the width for proper stone block proportions
+  }
+
   createBarriers(xPosition, zPosition) {
     const barriers = { left: [], right: [] };
 
-    // Random chance for this segment to have any rocks (30% chance of no rocks)
+    // Random chance for this segment to have walls (70% chance of having walls)
     if (Math.random() < 0.3) {
-      return barriers; // No rocks for this segment
+      return barriers; // No walls for this segment
     }
 
     // Random chance for each side
-    const hasLeftRocks = Math.random() < 0.6;
-    const hasRightRocks = Math.random() < 0.6;
+    const hasLeftWall = Math.random() < 0.6;
+    const hasRightWall = Math.random() < 0.6;
 
-    if (hasLeftRocks) {
-      this.createRockBarrier(barriers.left, xPosition, zPosition, -1);
+    if (hasLeftWall) {
+      this.createStoneWall(barriers.left, xPosition, zPosition, -1);
     }
-    if (hasRightRocks) {
-      this.createRockBarrier(barriers.right, xPosition, zPosition, 1);
+    if (hasRightWall) {
+      this.createStoneWall(barriers.right, xPosition, zPosition, 1);
     }
 
     return barriers;
   }
 
-  createRockBarrier(barrierArray, xPosition, zPosition, side) {
-    const rockMaterial = new THREE.MeshPhongMaterial({
-      color: 0x707070, // Gray color for rocks
-      roughness: 0.8, // Make it look rough
+  createStoneWall(barrierArray, xPosition, zPosition, side) {
+    const stoneMaterial = new THREE.MeshPhongMaterial({
+      color: 0x707070, // Back to original gray color
+      roughness: 0.8,
       metalness: 0.2,
-      flatShading: true, // Give it a more jagged appearance
+      flatShading: true,
     });
 
-    // Create a group of rocks along the segment
-    const spacing = 8; // Space between rock groups
-    for (let z = 0; z < this.segmentLength; z += spacing) {
-      // Random chance to skip this rock group
-      if (Math.random() < 0.3) continue;
+    // Wall parameters
+    const wallHeight = 3; // Height in stone layers
+    const stoneWidth = 1;
+    const stoneHeight = 0.5;
+    const stoneDepth = 1;
 
-      // Create a cluster of rocks at this position
-      const rockCount = Math.floor(Math.random() * 3) + 2; // 2-4 rocks per cluster
-      for (let i = 0; i < rockCount; i++) {
-        const rockGeometry =
-          this.rockGeometries[
-            Math.floor(Math.random() * this.rockGeometries.length)
-          ];
-        const rock = new THREE.Mesh(rockGeometry, rockMaterial);
+    // Create the wall along the segment
+    for (let z = 0; z < this.segmentLength; z += stoneDepth) {
+      for (let y = 0; y < wallHeight; y++) {
+        // Offset every other layer for brick pattern
+        const xOffset = (y % 2) * (stoneWidth / 2);
 
-        // Random size for each rock
-        const scale = Math.random() * 1.5 + 1;
-        rock.scale.set(scale, scale * 1.5, scale);
+        const stone = new THREE.Mesh(this.stoneGeometry, stoneMaterial);
 
-        // Position within the cluster
-        rock.position.set(
-          xPosition +
-            side * (this.roadWidth / 2 + 1) +
-            (Math.random() - 0.5) * 2,
-          scale - 1,
-          zPosition - z + (Math.random() - 0.5) * 2
+        // Position the stone in the wall
+        stone.position.set(
+          xPosition + side * (this.roadWidth / 2 + 0.5) + xOffset,
+          y * stoneHeight,
+          zPosition - z
         );
 
-        // Random rotation
-        rock.rotation.set(
-          Math.random() * Math.PI,
-          Math.random() * Math.PI,
-          Math.random() * Math.PI
-        );
+        // Add slight random rotation and position variation for natural look
+        stone.rotation.y = (Math.random() - 0.5) * 0.1;
+        stone.position.x += (Math.random() - 0.5) * 0.1;
+        stone.position.y += (Math.random() - 0.5) * 0.05;
 
-        this.scene.scene.add(rock);
-        barrierArray.push(rock);
+        this.scene.scene.add(stone);
+        barrierArray.push(stone);
 
-        // Add collision data to the rock for future implementation
-        rock.userData.isBarrier = true;
-        rock.userData.pushForce = 10;
+        // Add collision data
+        stone.userData.isBarrier = true;
+        stone.userData.pushForce = 15;
       }
     }
   }
