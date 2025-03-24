@@ -19,6 +19,10 @@ export class Player {
     this.cameraX = 0;
     this.smoothSpeed = 0.015;
 
+    // Add bounce properties
+    this.bounceStrength = 0.5; // Increased bounce strength
+    this.xVelocity = 0; // Add velocity for smoother bounce
+
     this.createPlayer();
     this.setupControls();
     this.createRespawnText();
@@ -56,17 +60,26 @@ export class Player {
 
   setupControls() {
     document.addEventListener("keydown", (e) => {
-      if (!this.isAlive) return; // Don't process controls while falling/respawning
+      if (!this.isAlive) return;
 
       switch (e.key) {
         case "ArrowLeft":
         case "a":
-          this.xPosition -= this.moveSpeed;
+          this.xVelocity = -this.moveSpeed;
           break;
         case "ArrowRight":
         case "d":
-          this.xPosition += this.moveSpeed;
+          this.xVelocity = this.moveSpeed;
           break;
+      }
+    });
+
+    // Add key up handler to stop movement
+    document.addEventListener("keyup", (e) => {
+      if (!this.isAlive) return;
+
+      if (["ArrowLeft", "ArrowRight", "a", "d"].includes(e.key)) {
+        this.xVelocity = 0;
       }
     });
   }
@@ -112,7 +125,7 @@ export class Player {
   startFalling() {
     this.isFalling = true;
     this.isAlive = false;
-    this.respawnCountdown = 5;
+    this.respawnCountdown = 3;
     this.showRespawnMessage();
   }
 
@@ -143,7 +156,6 @@ export class Player {
   update() {
     if (!this.isAlive) {
       if (this.isFalling) {
-        // Update falling animation
         this.mesh.position.y -= this.fallSpeed;
         this.mesh.rotation.x += 0.05;
         this.mesh.rotation.z += 0.05;
@@ -151,24 +163,52 @@ export class Player {
       return;
     }
 
-    // Add constant forward movement (negative Z is forward)
-    this.forwardSpeed = 1.0; // Adjust this value to change speed
+    // Forward movement
+    this.forwardSpeed = 1.0;
     this.zPosition -= this.forwardSpeed;
 
-    // Normal movement update
+    // Apply velocity to position
+    this.xPosition += this.xVelocity;
+
+    // Dampen velocity
+    this.xVelocity *= 0.9;
+
     const segment = this.getCurrentSegment();
     if (!segment) return;
 
-    // Check for falling
-    this.checkFall();
+    // Check wall collisions
+    this.handleWallCollisions(segment);
 
     // Update position
     this.mesh.position.x = this.xPosition;
     this.mesh.position.z = this.zPosition;
 
-    // Update camera
     if (this.isAlive) {
       this.updateCamera(segment.xPosition);
+    }
+  }
+
+  handleWallCollisions(segment) {
+    const distanceFromCenter = Math.abs(this.xPosition);
+    const isOutsideRoad = distanceFromCenter > this.maxOffset;
+
+    if (isOutsideRoad) {
+      const side = this.xPosition > 0 ? "right" : "left";
+      const hasBarrier = segment.barriers[side].length > 0;
+
+      if (hasBarrier) {
+        // Bounce back from wall
+        const bounceDirection = this.xPosition > 0 ? -1 : 1;
+
+        // Set position back to road edge
+        this.xPosition = this.maxOffset * (this.xPosition > 0 ? 1 : -1);
+
+        // Apply strong bounce velocity
+        this.xVelocity = bounceDirection * this.bounceStrength;
+      } else {
+        // No barrier, player can fall
+        this.startFalling();
+      }
     }
   }
 
