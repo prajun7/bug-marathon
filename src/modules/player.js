@@ -8,7 +8,7 @@ export class Player {
     this.zPosition = -20;
 
     // Movement settings
-    this.forwardSpeed = 1; // Constant forward movement
+    this.forwardSpeed = 0.5; // Constant forward movement
     this.lateralSpeed = 2;
     this.maxOffset = this.environment.roadWidth / 2 - 4; // Buffer from edge
 

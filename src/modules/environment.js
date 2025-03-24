@@ -97,7 +97,7 @@ export class Environment {
 
   createStoneWall(barrierArray, xPosition, zPosition) {
     const stoneMaterial = new THREE.MeshPhongMaterial({
-      color: 0x707070,
+      color: 0x708090,
       roughness: 0.8,
       metalness: 0.2,
       flatShading: true,
