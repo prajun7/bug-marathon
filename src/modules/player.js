@@ -155,6 +155,7 @@ export class Player {
     scoreDiv.style.padding = "10px";
     scoreDiv.style.backgroundColor = "rgba(0, 0, 0, 0.5)";
     scoreDiv.style.borderRadius = "5px";
+    scoreDiv.style.lineHeight = "1.5";
     scoreDiv.id = "scoreDisplay";
     document.body.appendChild(scoreDiv);
     this.scoreDisplay = scoreDiv;
@@ -162,11 +163,9 @@ export class Player {
   }
 
   updateScoreDisplay() {
-    const speedPercentage =
-      Math.round((this.currentSpeedMultiplier - 1) * 100 * 100) / 100;
-    this.scoreDisplay.textContent = `Score: ${
-      this.score
-    } | Speed: +${speedPercentage.toFixed(2)}%`;
+    const speedPercentage = Math.round((this.currentSpeedMultiplier - 1) * 100);
+    this.scoreDisplay.textContent = `Score: ${this.score}\nSpeed: +${speedPercentage}%`;
+    this.scoreDisplay.style.whiteSpace = "pre-line";
   }
 
   checkPassedObstacles() {
