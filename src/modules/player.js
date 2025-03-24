@@ -1,3 +1,26 @@
+// At the top of the file, outside the class
+const createHighScoreManager = () => {
+  // Try to load the high score from localStorage, or default to 0
+  let privateHighScore = parseInt(localStorage.getItem("gameHighScore")) || 0;
+
+  return {
+    getHighScore: () => privateHighScore,
+    updateHighScore: (score) => {
+      if (score > privateHighScore) {
+        privateHighScore = score;
+        // Save to localStorage whenever we set a new high score
+        localStorage.setItem("gameHighScore", privateHighScore.toString());
+        return true;
+      }
+      return false;
+    },
+    resetHighScore: () => {
+      privateHighScore = 0;
+      localStorage.setItem("gameHighScore", "0");
+    },
+  };
+};
+
 export class Player {
   constructor(scene, environment) {
     this.scene = scene;
@@ -11,8 +34,16 @@ export class Player {
     this.respawnCountdown = 5;
     this.fallSpeed = 0.5;
 
+    // Add speed progression properties
+    this.baseForwardSpeed = 0.5;
+    this.maxForwardSpeed = 3.0;
+    this.speedIncreaseRate = 0.000025; // Significantly reduced from 0.0001
+    this.currentSpeedMultiplier = 1.0;
+    this.timeSinceLastHit = 0;
+
     // Movement settings
-    this.moveSpeed = 2.0;
+    this.moveSpeed = 1.0;
+    this.forwardSpeed = this.baseForwardSpeed;
     this.maxOffset = this.environment.roadWidth / 2 - 4;
 
     // Camera settings
@@ -25,8 +56,8 @@ export class Player {
 
     // Jump properties
     this.isJumping = false;
-    this.jumpForce = 1;
-    this.gravity = 0.05;
+    this.jumpForce = 0.8;
+    this.gravity = 0.04;
     this.jumpVelocity = 0;
     this.groundY = 4; // Normal height of player above ground
     this.jumpCount = 0; // Track number of jumps
@@ -36,10 +67,30 @@ export class Player {
     this.score = 0;
     this.lastPassedObstacleZ = 0;
 
+    // Add sliding properties
+    this.isSliding = false;
+    this.slideHeight = 2; // Height while sliding (lower than normal)
+    this.normalHeight = 8; // Normal height
+    this.slideTimer = 0;
+    this.slideDuration = 1000; // Sliding duration in milliseconds
+
+    // Add knockback properties
+    this.isKnockedBack = false;
+    this.knockbackForce = 1.0;
+    this.knockbackDuration = 1000; // milliseconds
+    this.knockbackTimer = 0;
+
+    // Add obstacle collision property
+    this.isBlockedByObstacle = false;
+
+    // Replace the highScore property with the manager
+    this.highScoreManager = createHighScoreManager();
+
     this.createPlayer();
     this.setupControls();
     this.createRespawnText();
     this.createScoreDisplay();
+    this.createHighScoreDisplay();
   }
 
   getCurrentSegment() {
@@ -88,6 +139,10 @@ export class Player {
         case " ": // Space bar
           this.jump();
           break;
+        case "ArrowDown":
+        case "s":
+          this.startSlide();
+          break;
       }
     });
 
@@ -127,14 +182,39 @@ export class Player {
     scoreDiv.style.padding = "10px";
     scoreDiv.style.backgroundColor = "rgba(0, 0, 0, 0.5)";
     scoreDiv.style.borderRadius = "5px";
+    scoreDiv.style.lineHeight = "1.5";
     scoreDiv.id = "scoreDisplay";
     document.body.appendChild(scoreDiv);
     this.scoreDisplay = scoreDiv;
     this.updateScoreDisplay();
   }
 
+  createHighScoreDisplay() {
+    const highScoreDiv = document.createElement("div");
+    highScoreDiv.style.position = "absolute";
+    highScoreDiv.style.top = "20px";
+    highScoreDiv.style.right = "20px"; // Position on right side
+    highScoreDiv.style.fontSize = "24px";
+    highScoreDiv.style.color = "white";
+    highScoreDiv.style.fontFamily = "Arial, sans-serif";
+    highScoreDiv.style.padding = "10px";
+    highScoreDiv.style.backgroundColor = "rgba(0, 0, 0, 0.5)";
+    highScoreDiv.style.borderRadius = "5px";
+    highScoreDiv.id = "highScoreDisplay";
+    document.body.appendChild(highScoreDiv);
+    this.highScoreDisplay = highScoreDiv;
+    this.updateHighScoreDisplay();
+  }
+
   updateScoreDisplay() {
-    this.scoreDisplay.textContent = `Score: ${this.score}`;
+    const speedPercentage = Math.round((this.currentSpeedMultiplier - 1) * 100);
+    this.scoreDisplay.textContent = `Score: ${this.score}\nSpeed: +${speedPercentage}%`;
+    this.scoreDisplay.style.whiteSpace = "pre-line";
+  }
+
+  updateHighScoreDisplay() {
+    this.highScoreManager.updateHighScore(this.score);
+    this.highScoreDisplay.textContent = `High Score: ${this.highScoreManager.getHighScore()}`;
   }
 
   checkPassedObstacles() {
@@ -148,6 +228,7 @@ export class Player {
         // We passed an obstacle without touching it
         this.score += 1;
         this.updateScoreDisplay();
+        this.updateHighScoreDisplay();
       }
     });
 
@@ -219,25 +300,46 @@ export class Player {
       return;
     }
 
-    // Set default forward speed
-    this.forwardSpeed = 1.0;
+    // Update speed progression
+    this.updateSpeed(16);
+
+    // Handle knockback
+    if (this.isKnockedBack) {
+      this.knockbackTimer += 16;
+      if (this.knockbackTimer < this.knockbackDuration) {
+        this.zPosition += this.knockbackForce;
+        this.mesh.rotation.x = Math.sin(this.knockbackTimer * 0.01) * 0.2;
+      } else {
+        this.isKnockedBack = false;
+        this.mesh.rotation.x = 0;
+      }
+    }
 
     // Check for obstacle collision
     if (this.environment.checkObstacleCollisions(this)) {
-      // Only stop if not jumping and not moving sideways
+      // Stop at obstacle if not jumping or moving sideways
       if (!this.isJumping && Math.abs(this.xVelocity) < 0.1) {
-        // Player is stuck and loses points
+        this.isBlockedByObstacle = true;
         this.forwardSpeed = 0;
-        this.score = Math.max(0, this.score - 2); // Prevent negative scores
-        this.updateScoreDisplay();
+        this.handleObstacleHit();
       }
+    } else {
+      // Clear obstacle block when no collision
+      this.isBlockedByObstacle = false;
     }
 
     // Check for passed obstacles
     this.checkPassedObstacles();
 
-    // Apply forward movement
-    this.zPosition -= this.forwardSpeed;
+    // Check for pendulum collisions
+    if (this.environment.checkPendulumCollisions(this)) {
+      this.handlePendulumHit();
+    }
+
+    // Only move forward if not knocked back and not blocked by obstacle
+    if (!this.isKnockedBack && !this.isBlockedByObstacle) {
+      this.zPosition -= this.forwardSpeed;
+    }
 
     // Apply velocity to position
     this.xPosition += this.xVelocity;
@@ -256,8 +358,8 @@ export class Player {
       }
     }
 
-    // Dampen velocity
-    this.xVelocity *= 0.9;
+    // Adjust damping for smoother movement at slower speeds
+    this.xVelocity *= 0.85;
 
     const segment = this.getCurrentSegment();
     if (!segment) return;
@@ -272,6 +374,12 @@ export class Player {
     if (this.isAlive) {
       this.updateCamera(segment.xPosition);
     }
+
+    // Update sliding
+    this.updateSlide(16); // Assuming 60fps, adjust if using different timing
+
+    // Add speed indicator to score display
+    this.updateScoreDisplay();
   }
 
   handleWallCollisions(segment) {
@@ -340,5 +448,64 @@ export class Player {
     this.isJumping = false;
     this.jumpVelocity = 0;
     this.mesh.position.y = this.groundY;
+  }
+
+  startSlide() {
+    if (!this.isSliding && !this.isJumping) {
+      this.isSliding = true;
+      this.slideTimer = 0;
+      // Adjust player height for sliding
+      this.mesh.scale.y = 0.25; // Flatten the player
+      this.mesh.position.y = 2; // Lower position while sliding
+    }
+  }
+
+  updateSlide(deltaTime) {
+    if (this.isSliding) {
+      this.slideTimer += deltaTime;
+      if (this.slideTimer >= this.slideDuration) {
+        // End slide
+        this.isSliding = false;
+        this.mesh.scale.y = 1; // Restore normal height
+        this.mesh.position.y = this.groundY;
+      }
+    }
+  }
+
+  handlePendulumHit() {
+    if (!this.isSliding) {
+      this.isKnockedBack = true;
+      this.knockbackTimer = 0;
+      this.score = 0;
+      this.updateScoreDisplay();
+      // Reset speed
+      this.resetSpeed();
+    }
+  }
+
+  handleObstacleHit() {
+    this.score = Math.max(0, this.score - 10);
+    this.updateScoreDisplay();
+    // Reset speed
+    this.resetSpeed();
+  }
+
+  updateSpeed(deltaTime) {
+    // Only increase speed if not blocked by obstacles or knocked back
+    if (!this.isKnockedBack && !this.isFalling && !this.isBlockedByObstacle) {
+      this.timeSinceLastHit += deltaTime;
+      // Gradually increase speed (much slower now)
+      this.currentSpeedMultiplier = Math.min(
+        this.maxForwardSpeed / this.baseForwardSpeed,
+        1 + this.timeSinceLastHit * this.speedIncreaseRate
+      );
+      this.forwardSpeed = this.baseForwardSpeed * this.currentSpeedMultiplier;
+    }
+  }
+
+  resetSpeed() {
+    this.currentSpeedMultiplier = 1.0;
+    this.forwardSpeed = this.baseForwardSpeed;
+    this.timeSinceLastHit = 0;
   }
 }

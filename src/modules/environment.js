@@ -35,6 +35,13 @@ export class Environment {
     this.minObstacleSpacing = 50;
     this.maxObstacleSpacing = 100;
 
+    // Pendulum properties
+    this.pendulums = [];
+    this.pendulumSpawnTimer = 0;
+    this.pendulumSpawnInterval = Math.random() * 10000 + 10000; // Random 10-20 seconds
+    this.lastPendulumZ = 0;
+    this.minPendulumSpacing = 200; // Minimum distance between pendulums
+
     // Initialize
     this.createInitialSegments();
     this.createInitialClouds();
@@ -201,6 +208,9 @@ export class Environment {
 
     // Update clouds with player position
     this.updateClouds(playerPosition.z);
+
+    // Update pendulums with player position
+    this.updatePendulums(playerPosition.z);
   }
 
   createCloud() {
@@ -390,5 +400,125 @@ export class Environment {
     for (let i = 0; i < 3; i++) {
       this.spawnObstacle();
     }
+  }
+
+  createPendulum(zPosition, xPosition) {
+    // Create the pendulum arm
+    const armGeometry = new THREE.BoxGeometry(4, 30, 4);
+    const armMaterial = new THREE.MeshPhongMaterial({
+      color: 0x888888,
+      metalness: 0.8,
+      roughness: 0.2,
+    });
+    const arm = new THREE.Mesh(armGeometry, armMaterial);
+
+    // Create the pendulum weight (sphere)
+    const weightGeometry = new THREE.SphereGeometry(8, 16, 16);
+    const weightMaterial = new THREE.MeshPhongMaterial({
+      color: 0xff0000,
+      emissive: 0xff0000,
+      emissiveIntensity: 0.2,
+      metalness: 0.7,
+      roughness: 0.3,
+    });
+    const weight = new THREE.Mesh(weightGeometry, weightMaterial);
+    weight.position.y = -15; // Position at bottom of arm
+
+    // Create pendulum group
+    const pendulum = new THREE.Group();
+    pendulum.add(arm);
+    pendulum.add(weight);
+
+    // Position the pendulum with random x position
+    pendulum.position.set(xPosition, 35, zPosition);
+
+    // Add swing properties with random initial angle
+    pendulum.userData = {
+      angle: Math.random() * Math.PI * 2, // Random starting angle
+      swingSpeed: 0.02,
+      maxAngle: Math.PI / 3, // Maximum swing angle
+      zPosition: zPosition,
+    };
+
+    // Add warning indicator
+    const warningGeometry = new THREE.CylinderGeometry(0.5, 0.5, 40, 8);
+    const warningMaterial = new THREE.MeshPhongMaterial({
+      color: 0xff0000,
+      transparent: true,
+      opacity: 0.3,
+    });
+    const warning = new THREE.Mesh(warningGeometry, warningMaterial);
+    warning.position.y = -20;
+    pendulum.add(warning);
+
+    this.scene.scene.add(pendulum);
+    this.pendulums.push(pendulum);
+  }
+
+  updatePendulums(playerZ) {
+    // Update spawn timer
+    this.pendulumSpawnTimer += 16; // Assuming 60fps
+
+    // Check if it's time to spawn a new pendulum
+    if (this.pendulumSpawnTimer >= this.pendulumSpawnInterval) {
+      this.pendulumSpawnTimer = 0;
+      // Set new random interval for next spawn
+      this.pendulumSpawnInterval = Math.random() * 10000 + 10000; // 10-20 seconds
+
+      // Spawn pendulum at random position ahead of player
+      const newZ = playerZ - 200; // Spawn ahead of player
+      const randomX = (Math.random() - 0.5) * (this.roadWidth - 20); // Random position across road
+      this.createPendulum(newZ, randomX);
+    }
+
+    // Update existing pendulums
+    for (let i = this.pendulums.length - 1; i >= 0; i--) {
+      const pendulum = this.pendulums[i];
+
+      // Update swing animation
+      pendulum.userData.angle += pendulum.userData.swingSpeed;
+      pendulum.rotation.z =
+        Math.sin(pendulum.userData.angle) * pendulum.userData.maxAngle;
+
+      // Remove pendulums that are too far behind
+      if (pendulum.position.z - playerZ > 100) {
+        this.scene.scene.remove(pendulum);
+        this.pendulums.splice(i, 1);
+      }
+    }
+  }
+
+  checkPendulumCollisions(player) {
+    if (player.isSliding || player.isKnockedBack) return false; // No collision while sliding or already knocked back
+
+    for (const pendulum of this.pendulums) {
+      const weight = pendulum.children[1]; // The sphere weight
+      const weightPos = weight.getWorldPosition(new THREE.Vector3());
+
+      // Calculate pendulum weight's world position
+      const weightBox = {
+        minX: weightPos.x - 8,
+        maxX: weightPos.x + 8,
+        minY: weightPos.y - 8,
+        maxY: weightPos.y + 8,
+        minZ: weightPos.z - 8,
+        maxZ: weightPos.z + 8,
+      };
+
+      const playerBox = {
+        minX: player.mesh.position.x - 2,
+        maxX: player.mesh.position.x + 2,
+        minY: player.mesh.position.y - 4,
+        maxY: player.mesh.position.y + 4,
+        minZ: player.mesh.position.z - 2,
+        maxZ: player.mesh.position.z + 2,
+      };
+
+      // Check if pendulum is in swing range of player
+      if (this.checkBoxCollision(playerBox, weightBox)) {
+        return true;
+      }
+    }
+    return false;
   }
 }
