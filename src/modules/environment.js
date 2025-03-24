@@ -25,6 +25,9 @@ export class Environment {
       maxZ: 200,
     };
 
+    // Create basic stone geometry
+    this.stoneGeometry = new THREE.BoxGeometry(1, 0.5, 1);
+
     // Initialize
     this.createInitialSegments();
     this.createInitialClouds();
@@ -76,33 +79,71 @@ export class Environment {
   createBarriers(zPosition) {
     const barriers = { left: [], right: [] };
 
-    // Random chance to have barriers on each side
-    const hasLeftBarrier = Math.random() < 0.7; // 70% chance for left barrier
-    const hasRightBarrier = Math.random() < 0.7; // 70% chance for right barrier
+    // Random chance for barriers on each side
+    const hasLeftBarrier = Math.random() < 0.7; // 70% chance
+    const hasRightBarrier = Math.random() < 0.7; // 70% chance
 
-    const barrierGeometry = new THREE.BoxGeometry(1, 4, this.segmentLength);
-    const barrierMaterial = new THREE.MeshPhongMaterial({
-      color: 0x707070,
-      roughness: 0.8,
-    });
-
-    // Create left barrier only if random check passes
+    // Create stone walls if random check passes
     if (hasLeftBarrier) {
-      const leftBarrier = new THREE.Mesh(barrierGeometry, barrierMaterial);
-      leftBarrier.position.set(-this.roadWidth / 2, 2, zPosition);
-      this.scene.scene.add(leftBarrier);
-      barriers.left.push(leftBarrier);
+      this.createStoneWall(barriers.left, -this.roadWidth / 2, zPosition);
     }
 
-    // Create right barrier only if random check passes
     if (hasRightBarrier) {
-      const rightBarrier = new THREE.Mesh(barrierGeometry, barrierMaterial);
-      rightBarrier.position.set(this.roadWidth / 2, 2, zPosition);
-      this.scene.scene.add(rightBarrier);
-      barriers.right.push(rightBarrier);
+      this.createStoneWall(barriers.right, this.roadWidth / 2, zPosition);
     }
 
     return barriers;
+  }
+
+  createStoneWall(barrierArray, xPosition, zPosition) {
+    const stoneMaterial = new THREE.MeshPhongMaterial({
+      color: 0x707070,
+      roughness: 0.8,
+      metalness: 0.2,
+      flatShading: true,
+    });
+
+    // Parameters for stone wall
+    const wallHeight = 7; // Height in stones
+    const wallLength = this.segmentLength;
+    const stoneSpacing = 2; // Space between stones
+
+    // Calculate number of stones needed
+    const stonesPerRow = Math.floor(wallLength / stoneSpacing);
+
+    // Create wall section
+    for (let z = 0; z < stonesPerRow; z++) {
+      for (let y = 0; y < wallHeight; y++) {
+        const stone = new THREE.Mesh(this.stoneGeometry, stoneMaterial);
+
+        // Add some random variation to each stone
+        const xOffset = (Math.random() - 0.5) * 0.3;
+        const yOffset = (Math.random() - 0.5) * 0.2;
+        const zOffset = (Math.random() - 0.5) * 0.3;
+
+        // Position stone
+        stone.position.set(
+          xPosition + xOffset,
+          y * 0.5 + yOffset, // Stack stones vertically
+          zPosition - z * stoneSpacing + zOffset
+        );
+
+        // Random rotation for variety
+        stone.rotation.y = (Math.random() - 0.5) * 0.5;
+        stone.rotation.x = (Math.random() - 0.5) * 0.2;
+        stone.rotation.z = (Math.random() - 0.5) * 0.2;
+
+        // Random scale for variety
+        const scale = 0.8 + Math.random() * 0.4;
+        stone.scale.set(scale, scale, scale);
+
+        stone.userData.isBarrier = true;
+        stone.userData.pushForce = 15;
+
+        this.scene.scene.add(stone);
+        barrierArray.push(stone);
+      }
+    }
   }
 
   createInitialSegments() {
