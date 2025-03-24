@@ -14,7 +14,12 @@ export class Environment {
 
     // Cloud properties
     this.clouds = [];
-    this.createClouds();
+    this.cloudSpawnTimer = 0;
+    this.cloudSpawnInterval = 100; // Controls how often new clouds spawn
+    this.maxClouds = 40;
+
+    // Initial cloud creation
+    this.createInitialClouds();
     this.createInitialSegments();
   }
 
@@ -127,56 +132,92 @@ export class Environment {
     return barriers;
   }
 
-  createClouds() {
-    const createCloud = () => {
-      const cloudGeometry = new THREE.SphereGeometry(5, 16, 16);
-      const cloudMaterial = new THREE.MeshPhongMaterial({
-        color: 0xeeeeee,
-        transparent: true,
-        opacity: 0.6,
-      });
+  createCloud() {
+    const cloudGeometry = new THREE.SphereGeometry(5, 16, 16);
+    const cloudMaterial = new THREE.MeshPhongMaterial({
+      color: 0xeeeeee,
+      transparent: true,
+      opacity: 0.6,
+    });
 
-      const cloud = new THREE.Group();
+    const cloud = new THREE.Group();
 
-      // Create more spheres for denser clouds
-      for (let i = 0; i < 8; i++) {
-        // Increased from 5 to 8
-        const sphere = new THREE.Mesh(cloudGeometry, cloudMaterial);
-        sphere.position.x = (Math.random() - 0.5) * 12;
-        sphere.position.y = (Math.random() - 0.5) * 6;
-        sphere.position.z = (Math.random() - 0.5) * 12;
-        sphere.scale.set(
-          Math.random() * 0.6 + 0.4,
-          Math.random() * 0.4 + 0.2,
-          Math.random() * 0.6 + 0.4
-        );
-        cloud.add(sphere);
-      }
+    // Create cloud shape
+    for (let i = 0; i < 8; i++) {
+      const sphere = new THREE.Mesh(cloudGeometry, cloudMaterial);
+      sphere.position.x = (Math.random() - 0.5) * 12;
+      sphere.position.y = (Math.random() - 0.5) * 6;
+      sphere.position.z = (Math.random() - 0.5) * 12;
+      sphere.scale.set(
+        Math.random() * 0.6 + 0.4,
+        Math.random() * 0.4 + 0.2,
+        Math.random() * 0.6 + 0.4
+      );
+      cloud.add(sphere);
+    }
 
-      return cloud;
+    // Position cloud away from road center
+    const side = Math.random() < 0.5 ? -1 : 1;
+    cloud.position.set(
+      (Math.random() * 100 + 50) * side, // Position clouds far to the sides
+      Math.random() * 60 + 40, // Keep clouds high enough
+      Math.random() * 300 - 150 // Spread along z-axis
+    );
+
+    // Add movement properties
+    cloud.userData = {
+      speed: Math.random() * 0.05 + 0.02,
+      side: side,
     };
 
-    // Create more clouds
-    for (let i = 0; i < 40; i++) {
-      // Increased from 20 to 40
-      const cloud = createCloud();
-      cloud.position.set(
-        (Math.random() - 0.5) * 300, // Wider spread
-        Math.random() * 60 + 20, // More varied height
-        (Math.random() - 0.5) * 300 // Wider spread
-      );
-      this.clouds.push(cloud);
-      this.scene.scene.add(cloud);
+    this.scene.scene.add(cloud);
+    return cloud;
+  }
+
+  createInitialClouds() {
+    for (let i = 0; i < this.maxClouds; i++) {
+      this.clouds.push(this.createCloud());
     }
   }
 
-  updateClouds() {
-    this.clouds.forEach((cloud) => {
-      cloud.position.x += 0.03; // Slightly slower cloud movement
-      if (cloud.position.x > 150) {
-        cloud.position.x = -150;
+  updateClouds(playerPosition) {
+    // Update existing clouds
+    for (let i = this.clouds.length - 1; i >= 0; i--) {
+      const cloud = this.clouds[i];
+
+      // Move cloud
+      cloud.position.x += cloud.userData.speed * cloud.userData.side;
+
+      // Check if cloud needs to be reset
+      if (
+        (cloud.userData.side > 0 && cloud.position.x > 150) ||
+        (cloud.userData.side < 0 && cloud.position.x < -150)
+      ) {
+        // Reset cloud to opposite side
+        cloud.position.x = -150 * cloud.userData.side;
+        cloud.position.z = playerPosition.z + (Math.random() * 300 - 150);
+        cloud.position.y = Math.random() * 60 + 40;
       }
-    });
+
+      // Remove clouds that are too far behind
+      if (cloud.position.z - playerPosition.z > 200) {
+        this.scene.scene.remove(cloud);
+        this.clouds.splice(i, 1);
+      }
+    }
+
+    // Generate new clouds
+    this.cloudSpawnTimer++;
+    if (
+      this.cloudSpawnTimer >= this.cloudSpawnInterval &&
+      this.clouds.length < this.maxClouds
+    ) {
+      this.cloudSpawnTimer = 0;
+      const newCloud = this.createCloud();
+      // Position new cloud ahead of player
+      newCloud.position.z = playerPosition.z - 200;
+      this.clouds.push(newCloud);
+    }
   }
 
   createInitialSegments() {
@@ -187,8 +228,8 @@ export class Environment {
   }
 
   update(playerPosition) {
-    // Update clouds
-    this.updateClouds();
+    // Update clouds with player position
+    this.updateClouds(playerPosition);
 
     // Check if we need new segments
     const lastSegment = this.segments[this.segments.length - 1];

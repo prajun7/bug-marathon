@@ -3,7 +3,7 @@ export class Player {
     this.scene = scene;
 
     // Reduced speed settings
-    this.speed = 0.25; // Halved from 0.5
+    this.speed = 5; // Halved from 0.5
     this.lateralSpeed = 0.4; // Halved from 0.8
 
     this.createPlayer();
