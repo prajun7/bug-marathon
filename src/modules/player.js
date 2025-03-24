@@ -11,8 +11,16 @@ export class Player {
     this.respawnCountdown = 5;
     this.fallSpeed = 0.5;
 
+    // Add speed progression properties
+    this.baseForwardSpeed = 0.5;
+    this.maxForwardSpeed = 3.0;
+    this.speedIncreaseRate = 0.0001; // Reduced from 0.001 for slower acceleration
+    this.currentSpeedMultiplier = 1.0;
+    this.timeSinceLastHit = 0;
+
     // Movement settings
-    this.moveSpeed = 2.0;
+    this.moveSpeed = 1.0;
+    this.forwardSpeed = this.baseForwardSpeed;
     this.maxOffset = this.environment.roadWidth / 2 - 4;
 
     // Camera settings
@@ -25,8 +33,8 @@ export class Player {
 
     // Jump properties
     this.isJumping = false;
-    this.jumpForce = 1;
-    this.gravity = 0.05;
+    this.jumpForce = 0.8;
+    this.gravity = 0.04;
     this.jumpVelocity = 0;
     this.groundY = 4; // Normal height of player above ground
     this.jumpCount = 0; // Track number of jumps
@@ -45,9 +53,12 @@ export class Player {
 
     // Add knockback properties
     this.isKnockedBack = false;
-    this.knockbackForce = 2.0;
+    this.knockbackForce = 1.0;
     this.knockbackDuration = 1000; // milliseconds
     this.knockbackTimer = 0;
+
+    // Add obstacle collision property
+    this.isBlockedByObstacle = false;
 
     this.createPlayer();
     this.setupControls();
@@ -151,7 +162,9 @@ export class Player {
   }
 
   updateScoreDisplay() {
-    this.scoreDisplay.textContent = `Score: ${this.score}`;
+    const speedPercentage =
+      Math.round((this.currentSpeedMultiplier - 1) * 100 * 10) / 10;
+    this.scoreDisplay.textContent = `Score: ${this.score} | Speed: +${speedPercentage}%`;
   }
 
   checkPassedObstacles() {
@@ -236,19 +249,16 @@ export class Player {
       return;
     }
 
-    // Set default forward speed
-    this.forwardSpeed = 1.0;
+    // Update speed progression
+    this.updateSpeed(16);
 
     // Handle knockback
     if (this.isKnockedBack) {
-      this.knockbackTimer += 16; // Assuming 60fps
+      this.knockbackTimer += 16;
       if (this.knockbackTimer < this.knockbackDuration) {
-        // Move player backward
         this.zPosition += this.knockbackForce;
-        // Optional: Add some stumbling animation
         this.mesh.rotation.x = Math.sin(this.knockbackTimer * 0.01) * 0.2;
       } else {
-        // End knockback
         this.isKnockedBack = false;
         this.mesh.rotation.x = 0;
       }
@@ -256,11 +266,15 @@ export class Player {
 
     // Check for obstacle collision
     if (this.environment.checkObstacleCollisions(this)) {
-      // Only stop if not jumping and not moving sideways
+      // Stop at obstacle if not jumping or moving sideways
       if (!this.isJumping && Math.abs(this.xVelocity) < 0.1) {
+        this.isBlockedByObstacle = true;
         this.forwardSpeed = 0;
         this.handleObstacleHit();
       }
+    } else {
+      // Clear obstacle block when no collision
+      this.isBlockedByObstacle = false;
     }
 
     // Check for passed obstacles
@@ -271,8 +285,8 @@ export class Player {
       this.handlePendulumHit();
     }
 
-    // Only move forward if not knocked back
-    if (!this.isKnockedBack) {
+    // Only move forward if not knocked back and not blocked by obstacle
+    if (!this.isKnockedBack && !this.isBlockedByObstacle) {
       this.zPosition -= this.forwardSpeed;
     }
 
@@ -293,8 +307,8 @@ export class Player {
       }
     }
 
-    // Dampen velocity
-    this.xVelocity *= 0.9;
+    // Adjust damping for smoother movement at slower speeds
+    this.xVelocity *= 0.85;
 
     const segment = this.getCurrentSegment();
     if (!segment) return;
@@ -312,6 +326,9 @@ export class Player {
 
     // Update sliding
     this.updateSlide(16); // Assuming 60fps, adjust if using different timing
+
+    // Add speed indicator to score display
+    this.updateScoreDisplay();
   }
 
   handleWallCollisions(segment) {
@@ -408,13 +425,36 @@ export class Player {
     if (!this.isSliding) {
       this.isKnockedBack = true;
       this.knockbackTimer = 0;
-      this.score = 0; // Reset score to 0
+      this.score = 0;
       this.updateScoreDisplay();
+      // Reset speed
+      this.resetSpeed();
     }
   }
 
   handleObstacleHit() {
-    this.score = Math.max(0, this.score - 10); // Deduct 10 points, minimum 0
+    this.score = Math.max(0, this.score - 10);
     this.updateScoreDisplay();
+    // Reset speed
+    this.resetSpeed();
+  }
+
+  updateSpeed(deltaTime) {
+    // Only increase speed if not blocked by obstacles or knocked back
+    if (!this.isKnockedBack && !this.isFalling && !this.isBlockedByObstacle) {
+      this.timeSinceLastHit += deltaTime;
+      // Gradually increase speed (much slower now)
+      this.currentSpeedMultiplier = Math.min(
+        this.maxForwardSpeed / this.baseForwardSpeed,
+        1 + this.timeSinceLastHit * this.speedIncreaseRate
+      );
+      this.forwardSpeed = this.baseForwardSpeed * this.currentSpeedMultiplier;
+    }
+  }
+
+  resetSpeed() {
+    this.currentSpeedMultiplier = 1.0;
+    this.forwardSpeed = this.baseForwardSpeed;
+    this.timeSinceLastHit = 0;
   }
 }
