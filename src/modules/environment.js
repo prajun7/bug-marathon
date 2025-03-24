@@ -31,7 +31,11 @@ export class Environment {
   }
 
   createSegment(zPosition) {
-    // Create straight road segment always centered at x=0
+    // Keep track of last few segments to prevent too many consecutive gaps
+    if (!this.lastBarrierStates) {
+      this.lastBarrierStates = [];
+    }
+
     const roadGeometry = new THREE.BoxGeometry(
       this.roadWidth,
       2,
@@ -43,16 +47,27 @@ export class Environment {
     });
 
     const road = new THREE.Mesh(roadGeometry, roadMaterial);
-    road.position.set(0, -1, zPosition); // Always centered at x=0
+    road.position.set(0, -1, zPosition);
     this.scene.scene.add(road);
 
-    // Create barriers
+    // Create barriers with pattern checking
     const barriers = this.createBarriers(zPosition);
+
+    // Store the state of this segment's barriers
+    this.lastBarrierStates.push({
+      hasLeft: barriers.left.length > 0,
+      hasRight: barriers.right.length > 0,
+    });
+
+    // Keep only last 3 states
+    if (this.lastBarrierStates.length > 3) {
+      this.lastBarrierStates.shift();
+    }
 
     return {
       road,
       barriers,
-      xPosition: 0, // Always centered
+      xPosition: 0,
       zPosition,
       angle: 0,
     };
@@ -61,23 +76,31 @@ export class Environment {
   createBarriers(zPosition) {
     const barriers = { left: [], right: [] };
 
+    // Random chance to have barriers on each side
+    const hasLeftBarrier = Math.random() < 0.7; // 70% chance for left barrier
+    const hasRightBarrier = Math.random() < 0.7; // 70% chance for right barrier
+
     const barrierGeometry = new THREE.BoxGeometry(1, 4, this.segmentLength);
     const barrierMaterial = new THREE.MeshPhongMaterial({
       color: 0x707070,
       roughness: 0.8,
     });
 
-    // Left barrier at -roadWidth/2
-    const leftBarrier = new THREE.Mesh(barrierGeometry, barrierMaterial);
-    leftBarrier.position.set(-this.roadWidth / 2, 2, zPosition);
-    this.scene.scene.add(leftBarrier);
-    barriers.left.push(leftBarrier);
+    // Create left barrier only if random check passes
+    if (hasLeftBarrier) {
+      const leftBarrier = new THREE.Mesh(barrierGeometry, barrierMaterial);
+      leftBarrier.position.set(-this.roadWidth / 2, 2, zPosition);
+      this.scene.scene.add(leftBarrier);
+      barriers.left.push(leftBarrier);
+    }
 
-    // Right barrier at +roadWidth/2
-    const rightBarrier = new THREE.Mesh(barrierGeometry, barrierMaterial);
-    rightBarrier.position.set(this.roadWidth / 2, 2, zPosition);
-    this.scene.scene.add(rightBarrier);
-    barriers.right.push(rightBarrier);
+    // Create right barrier only if random check passes
+    if (hasRightBarrier) {
+      const rightBarrier = new THREE.Mesh(barrierGeometry, barrierMaterial);
+      rightBarrier.position.set(this.roadWidth / 2, 2, zPosition);
+      this.scene.scene.add(rightBarrier);
+      barriers.right.push(rightBarrier);
+    }
 
     return barriers;
   }
