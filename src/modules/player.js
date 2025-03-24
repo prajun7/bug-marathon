@@ -14,7 +14,7 @@ export class Player {
     // Add speed progression properties
     this.baseForwardSpeed = 0.5;
     this.maxForwardSpeed = 3.0;
-    this.speedIncreaseRate = 0.0001; // Reduced from 0.001 for slower acceleration
+    this.speedIncreaseRate = 0.000025; // Significantly reduced from 0.0001
     this.currentSpeedMultiplier = 1.0;
     this.timeSinceLastHit = 0;
 
@@ -163,8 +163,10 @@ export class Player {
 
   updateScoreDisplay() {
     const speedPercentage =
-      Math.round((this.currentSpeedMultiplier - 1) * 100 * 10) / 10;
-    this.scoreDisplay.textContent = `Score: ${this.score} | Speed: +${speedPercentage}%`;
+      Math.round((this.currentSpeedMultiplier - 1) * 100 * 100) / 100;
+    this.scoreDisplay.textContent = `Score: ${
+      this.score
+    } | Speed: +${speedPercentage.toFixed(2)}%`;
   }
 
   checkPassedObstacles() {
