@@ -3,7 +3,7 @@ export class Environment {
     this.scene = scene;
 
     // Road properties
-    this.roadWidth = 40;
+    this.roadWidth = 60;
     this.segmentLength = 100;
     this.visibleSegments = 15;
 
@@ -307,7 +307,7 @@ export class Environment {
       this.minObstacleSpacing -
       Math.random() * (this.maxObstacleSpacing - this.minObstacleSpacing);
 
-    const x = (Math.random() - 0.5) * (this.roadWidth - 8);
+    const x = (Math.random() - 0.5) * (this.roadWidth - 12);
 
     // Randomly choose obstacle type
     const obstacleType = Math.random() < 0.5 ? "cube" : "sphere";

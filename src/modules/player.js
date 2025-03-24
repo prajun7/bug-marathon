@@ -12,8 +12,8 @@ export class Player {
     this.fallSpeed = 0.5;
 
     // Movement settings
-    this.moveSpeed = 1.5;
-    this.maxOffset = this.environment.roadWidth / 2 - 2;
+    this.moveSpeed = 2.0;
+    this.maxOffset = this.environment.roadWidth / 2 - 4;
 
     // Camera settings
     this.cameraX = 0;
