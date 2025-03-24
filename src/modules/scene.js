@@ -15,18 +15,23 @@ export class Scene {
     this.renderer.shadowMap.enabled = true;
     document.getElementById("app").appendChild(this.renderer.domElement);
 
-    // Bright, cheerful sky color
-    this.scene.background = new THREE.Color(0x87ceeb);
+    // Restore original bright blue sky color
+    this.scene.background = new THREE.Color(0x87ceeb); // Bright sky blue
     this.scene.fog = new THREE.Fog(0x87ceeb, 100, 300);
 
-    // Lighting for cheerful atmosphere
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+    // Adjusted lighting for tech theme
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.4);
     this.scene.add(ambientLight);
 
-    const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
+    const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
     directionalLight.position.set(100, 100, 50);
     directionalLight.castShadow = true;
     this.scene.add(directionalLight);
+
+    // Add some subtle colored lighting for tech feel
+    const blueLight = new THREE.PointLight(0x00ff00, 0.5, 100);
+    blueLight.position.set(20, 20, 20);
+    this.scene.add(blueLight);
 
     // Initial camera position
     this.camera.position.set(0, 25, 35);

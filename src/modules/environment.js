@@ -25,15 +25,16 @@ export class Environment {
     }
     this.currentX += (this.targetX - this.currentX) * 0.1;
 
-    // Create colorful road platform
+    // Create tech-themed road platform
     const platformGeometry = new THREE.BoxGeometry(
       this.roadWidth,
       2,
       this.segmentLength
     );
     const platformMaterial = new THREE.MeshPhongMaterial({
-      color: Math.random() < 0.5 ? 0xffd700 : 0xff69b4, // Alternating yellow and pink
-      shininess: 50,
+      // Alternating between dark gray and lighter blue-gray
+      color: Math.random() < 0.5 ? 0x2c3e50 : 0x34495e,
+      shininess: 60,
     });
     const platform = new THREE.Mesh(platformGeometry, platformMaterial);
     platform.position.set(this.currentX, -1, zPosition);
@@ -55,7 +56,7 @@ export class Environment {
   createBarriers(xPosition, zPosition) {
     const barriers = { left: [], right: [] };
 
-    // Create colorful rails
+    // Create tech-themed rails
     const railGeometry = new THREE.CylinderGeometry(
       0.3,
       0.3,
@@ -63,8 +64,9 @@ export class Environment {
       8
     );
     const railMaterial = new THREE.MeshPhongMaterial({
-      color: 0xff1493, // Hot pink
-      shininess: 50,
+      color: 0x00ff00, // Matrix-style green
+      shininess: 70,
+      emissive: 0x003300, // Slight glow effect
     });
 
     // Horizontal rails
@@ -93,11 +95,12 @@ export class Environment {
       barriers.right.push(rightRail);
     }
 
-    // Vertical posts
+    // Vertical posts with different color
     const postGeometry = new THREE.CylinderGeometry(0.3, 0.3, 3, 8);
     const postMaterial = new THREE.MeshPhongMaterial({
-      color: 0xff69b4, // Pink
-      shininess: 50,
+      color: 0x1abc9c, // Cyan-ish tech color
+      shininess: 70,
+      emissive: 0x0f5c4b, // Slight glow
     });
 
     for (let z = 0; z < this.segmentLength; z += 20) {
@@ -128,23 +131,24 @@ export class Environment {
     const createCloud = () => {
       const cloudGeometry = new THREE.SphereGeometry(5, 16, 16);
       const cloudMaterial = new THREE.MeshPhongMaterial({
-        color: 0xffffff,
+        color: 0xeeeeee,
         transparent: true,
-        opacity: 0.8,
+        opacity: 0.6,
       });
 
       const cloud = new THREE.Group();
 
-      // Create multiple spheres for puffy cloud look
-      for (let i = 0; i < 5; i++) {
+      // Create more spheres for denser clouds
+      for (let i = 0; i < 8; i++) {
+        // Increased from 5 to 8
         const sphere = new THREE.Mesh(cloudGeometry, cloudMaterial);
-        sphere.position.x = (Math.random() - 0.5) * 10;
-        sphere.position.y = (Math.random() - 0.5) * 5;
-        sphere.position.z = (Math.random() - 0.5) * 10;
+        sphere.position.x = (Math.random() - 0.5) * 12;
+        sphere.position.y = (Math.random() - 0.5) * 6;
+        sphere.position.z = (Math.random() - 0.5) * 12;
         sphere.scale.set(
-          Math.random() * 0.5 + 0.5,
-          Math.random() * 0.3 + 0.3,
-          Math.random() * 0.5 + 0.5
+          Math.random() * 0.6 + 0.4,
+          Math.random() * 0.4 + 0.2,
+          Math.random() * 0.6 + 0.4
         );
         cloud.add(sphere);
       }
@@ -152,13 +156,14 @@ export class Environment {
       return cloud;
     };
 
-    // Create multiple clouds
-    for (let i = 0; i < 20; i++) {
+    // Create more clouds
+    for (let i = 0; i < 40; i++) {
+      // Increased from 20 to 40
       const cloud = createCloud();
       cloud.position.set(
-        (Math.random() - 0.5) * 200,
-        Math.random() * 50 + 30,
-        (Math.random() - 0.5) * 200
+        (Math.random() - 0.5) * 300, // Wider spread
+        Math.random() * 60 + 20, // More varied height
+        (Math.random() - 0.5) * 300 // Wider spread
       );
       this.clouds.push(cloud);
       this.scene.scene.add(cloud);
@@ -167,9 +172,9 @@ export class Environment {
 
   updateClouds() {
     this.clouds.forEach((cloud) => {
-      cloud.position.x += 0.05;
-      if (cloud.position.x > 100) {
-        cloud.position.x = -100;
+      cloud.position.x += 0.03; // Slightly slower cloud movement
+      if (cloud.position.x > 150) {
+        cloud.position.x = -150;
       }
     });
   }
