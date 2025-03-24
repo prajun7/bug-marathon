@@ -3,7 +3,7 @@ export class Environment {
     this.scene = scene;
 
     // Road properties
-    this.roadWidth = 40;
+    this.roadWidth = 60;
     this.segmentLength = 100;
     this.visibleSegments = 15;
 
@@ -28,9 +28,17 @@ export class Environment {
     // Create basic stone geometry
     this.stoneGeometry = new THREE.BoxGeometry(1, 0.5, 1);
 
+    // Add obstacle properties
+    this.obstacles = [];
+    this.obstacleSpawnDistance = 100;
+    this.lastObstacleZ = -50;
+    this.minObstacleSpacing = 50;
+    this.maxObstacleSpacing = 100;
+
     // Initialize
     this.createInitialSegments();
     this.createInitialClouds();
+    this.spawnInitialObstacles();
   }
 
   createSegment(zPosition) {
@@ -176,8 +184,23 @@ export class Environment {
       }
     }
 
+    // Spawn new obstacles
+    while (this.lastObstacleZ > playerPosition.z - this.obstacleSpawnDistance) {
+      this.spawnObstacle();
+    }
+
+    // Clean up old obstacles
+    this.obstacles = this.obstacles.filter((obstacle) => {
+      const distanceFromPlayer = obstacle.mesh.position.z - playerPosition.z;
+      if (distanceFromPlayer > 50) {
+        this.scene.scene.remove(obstacle.mesh);
+        return false;
+      }
+      return true;
+    });
+
     // Update clouds with player position
-    this.updateClouds(playerPosition);
+    this.updateClouds(playerPosition.z);
   }
 
   createCloud() {
@@ -227,9 +250,9 @@ export class Environment {
     }
   }
 
-  updateClouds(playerPosition) {
-    // Default position if playerPosition is undefined
-    const zPos = playerPosition?.z || 0;
+  updateClouds(playerZ) {
+    // Default position if playerZ is undefined
+    const zPos = playerZ || 0;
 
     // Update existing clouds
     for (let i = this.clouds.length - 1; i >= 0; i--) {
@@ -274,6 +297,98 @@ export class Environment {
         newCloud.position.z = zPos - 200 - Math.random() * 100;
         this.clouds.push(newCloud);
       }
+    }
+  }
+
+  // Add these new methods for obstacles
+  spawnObstacle() {
+    const z =
+      this.lastObstacleZ -
+      this.minObstacleSpacing -
+      Math.random() * (this.maxObstacleSpacing - this.minObstacleSpacing);
+
+    const x = (Math.random() - 0.5) * (this.roadWidth - 12);
+
+    // Randomly choose obstacle type
+    const obstacleType = Math.random() < 0.5 ? "cube" : "sphere";
+    let mesh;
+
+    if (obstacleType === "cube") {
+      const geometry = new THREE.BoxGeometry(6, 6, 6);
+      const material = new THREE.MeshPhongMaterial({
+        color: 0xff0000,
+        emissive: 0xff0000,
+        emissiveIntensity: 0.2,
+      });
+      mesh = new THREE.Mesh(geometry, material);
+    } else {
+      const geometry = new THREE.SphereGeometry(4, 16, 16);
+      const material = new THREE.MeshPhongMaterial({
+        color: 0xff6600,
+        emissive: 0xff6600,
+        emissiveIntensity: 0.2,
+        metalness: 0.5,
+        roughness: 0.5,
+      });
+      mesh = new THREE.Mesh(geometry, material);
+    }
+
+    mesh.position.set(x, obstacleType === "cube" ? 3 : 4, z);
+    mesh.userData.type = obstacleType;
+    mesh.userData.counted = false; // Add this flag to track if we've counted this obstacle
+
+    this.scene.scene.add(mesh);
+    this.obstacles.push({ mesh });
+    this.lastObstacleZ = z;
+  }
+
+  checkObstacleCollisions(player) {
+    for (const obstacle of this.obstacles) {
+      const isSphere = obstacle.mesh.userData.type === "sphere";
+
+      // Adjust collision box based on obstacle type
+      const obstacleSize = isSphere ? 4 : 3;
+
+      const playerBox = {
+        minX: player.mesh.position.x - 2,
+        maxX: player.mesh.position.x + 2,
+        minY: player.mesh.position.y - 4,
+        maxY: player.mesh.position.y + 4,
+        minZ: player.mesh.position.z - 2,
+        maxZ: player.mesh.position.z + 2,
+      };
+
+      const obstacleBox = {
+        minX: obstacle.mesh.position.x - obstacleSize,
+        maxX: obstacle.mesh.position.x + obstacleSize,
+        minY: obstacle.mesh.position.y - obstacleSize,
+        maxY: obstacle.mesh.position.y + obstacleSize,
+        minZ: obstacle.mesh.position.z - obstacleSize,
+        maxZ: obstacle.mesh.position.z + obstacleSize,
+      };
+
+      if (this.checkBoxCollision(playerBox, obstacleBox)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  checkBoxCollision(box1, box2) {
+    return (
+      box1.minX <= box2.maxX &&
+      box1.maxX >= box2.minX &&
+      box1.minY <= box2.maxY &&
+      box1.maxY >= box2.minY &&
+      box1.minZ <= box2.maxZ &&
+      box1.maxZ >= box2.minZ
+    );
+  }
+
+  spawnInitialObstacles() {
+    // Spawn just 3 initial obstacles
+    for (let i = 0; i < 3; i++) {
+      this.spawnObstacle();
     }
   }
 }

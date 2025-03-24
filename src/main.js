@@ -13,21 +13,36 @@ class Game {
     this.player = new Player(this.scene, this.environment);
     console.log("Player initialized");
 
+    // Add CSS for game overlay
+    this.addStyles();
+
     this.animate = this.animate.bind(this);
     this.animate();
+  }
+
+  addStyles() {
+    const style = document.createElement("style");
+    style.textContent = `
+      #respawnText {
+        font-family: Arial, sans-serif;
+        background-color: rgba(0, 0, 0, 0.7);
+        padding: 20px;
+        border-radius: 10px;
+        text-align: center;
+      }
+    `;
+    document.head.appendChild(style);
   }
 
   animate() {
     requestAnimationFrame(this.animate);
 
-    // Update player first
+    // Update game state
+    if (this.player.isAlive) {
+      this.environment.update(this.player.mesh.position);
+    }
+
     this.player.update();
-
-    // Pass player position to environment
-    const playerPosition = this.player.mesh.position;
-    this.environment.update(playerPosition);
-    this.environment.updateClouds(playerPosition);
-
     this.scene.render();
   }
 }
