@@ -61,6 +61,32 @@ export class Environment {
   createBarriers(xPosition, zPosition) {
     const barriers = { left: [], right: [] };
 
+    // Random chance for each side to have barriers
+    const hasLeftBarrier = Math.random() < 0.7; // 70% chance for left barrier
+    const hasRightBarrier = Math.random() < 0.7; // 70% chance for right barrier
+
+    // Only create barriers if the side should have them
+    if (!hasLeftBarrier && !hasRightBarrier) {
+      // Ensure at least one side has barriers for safety
+      const forcedSide = Math.random() < 0.5 ? "left" : "right";
+      if (forcedSide === "left") {
+        this.createSideBarrier(barriers.left, xPosition, zPosition, -1);
+      } else {
+        this.createSideBarrier(barriers.right, xPosition, zPosition, 1);
+      }
+    } else {
+      if (hasLeftBarrier) {
+        this.createSideBarrier(barriers.left, xPosition, zPosition, -1);
+      }
+      if (hasRightBarrier) {
+        this.createSideBarrier(barriers.right, xPosition, zPosition, 1);
+      }
+    }
+
+    return barriers;
+  }
+
+  createSideBarrier(barrierArray, xPosition, zPosition, side) {
     // Create tech-themed rails
     const railGeometry = new THREE.CylinderGeometry(
       0.3,
@@ -71,65 +97,50 @@ export class Environment {
     const railMaterial = new THREE.MeshPhongMaterial({
       color: 0x00ff00, // Matrix-style green
       shininess: 70,
-      emissive: 0x003300, // Slight glow effect
+      emissive: 0x003300,
     });
 
-    // Horizontal rails
-    for (let height of [0, 1, 2]) {
-      // Three rails high
-      const leftRail = new THREE.Mesh(railGeometry, railMaterial);
-      const rightRail = new THREE.Mesh(railGeometry, railMaterial);
+    // Random number of horizontal rails (1 to 3)
+    const railCount = Math.floor(Math.random() * 3) + 1;
 
-      leftRail.rotation.x = Math.PI / 2;
-      rightRail.rotation.x = Math.PI / 2;
-
-      leftRail.position.set(
-        xPosition - this.roadWidth / 2 - 0.5,
+    // Create horizontal rails
+    for (let height = 0; height < railCount; height++) {
+      const rail = new THREE.Mesh(railGeometry, railMaterial);
+      rail.rotation.x = Math.PI / 2;
+      rail.position.set(
+        xPosition + side * (this.roadWidth / 2 + 0.5),
         height,
         zPosition
       );
-      rightRail.position.set(
-        xPosition + this.roadWidth / 2 + 0.5,
-        height,
-        zPosition
-      );
-
-      this.scene.scene.add(leftRail);
-      this.scene.scene.add(rightRail);
-      barriers.left.push(leftRail);
-      barriers.right.push(rightRail);
+      this.scene.scene.add(rail);
+      barrierArray.push(rail);
     }
 
-    // Vertical posts with different color
-    const postGeometry = new THREE.CylinderGeometry(0.3, 0.3, 3, 8);
+    // Random post spacing
+    const postSpacing = Math.random() < 0.5 ? 10 : 20; // Either dense or sparse posts
+
+    // Vertical posts
+    const postGeometry = new THREE.CylinderGeometry(0.3, 0.3, railCount, 8);
     const postMaterial = new THREE.MeshPhongMaterial({
-      color: 0x1abc9c, // Cyan-ish tech color
+      color: 0x1abc9c,
       shininess: 70,
-      emissive: 0x0f5c4b, // Slight glow
+      emissive: 0x0f5c4b,
     });
 
-    for (let z = 0; z < this.segmentLength; z += 20) {
-      const leftPost = new THREE.Mesh(postGeometry, postMaterial);
-      const rightPost = new THREE.Mesh(postGeometry, postMaterial);
+    // Add posts with random spacing
+    for (let z = 0; z < this.segmentLength; z += postSpacing) {
+      // Random chance to skip a post
+      if (Math.random() < 0.2) continue; // 20% chance to skip a post
 
-      leftPost.position.set(
-        xPosition - this.roadWidth / 2 - 0.5,
-        1.5,
+      const post = new THREE.Mesh(postGeometry, postMaterial);
+      post.position.set(
+        xPosition + side * (this.roadWidth / 2 + 0.5),
+        railCount / 2,
         zPosition - z
       );
-      rightPost.position.set(
-        xPosition + this.roadWidth / 2 + 0.5,
-        1.5,
-        zPosition - z
-      );
-
-      this.scene.scene.add(leftPost);
-      this.scene.scene.add(rightPost);
-      barriers.left.push(leftPost);
-      barriers.right.push(rightPost);
+      this.scene.scene.add(post);
+      barrierArray.push(post);
     }
-
-    return barriers;
   }
 
   createCloud() {
