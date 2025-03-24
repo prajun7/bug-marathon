@@ -1,3 +1,26 @@
+// At the top of the file, outside the class
+const createHighScoreManager = () => {
+  // Try to load the high score from localStorage, or default to 0
+  let privateHighScore = parseInt(localStorage.getItem("gameHighScore")) || 0;
+
+  return {
+    getHighScore: () => privateHighScore,
+    updateHighScore: (score) => {
+      if (score > privateHighScore) {
+        privateHighScore = score;
+        // Save to localStorage whenever we set a new high score
+        localStorage.setItem("gameHighScore", privateHighScore.toString());
+        return true;
+      }
+      return false;
+    },
+    resetHighScore: () => {
+      privateHighScore = 0;
+      localStorage.setItem("gameHighScore", "0");
+    },
+  };
+};
+
 export class Player {
   constructor(scene, environment) {
     this.scene = scene;
@@ -60,10 +83,14 @@ export class Player {
     // Add obstacle collision property
     this.isBlockedByObstacle = false;
 
+    // Replace the highScore property with the manager
+    this.highScoreManager = createHighScoreManager();
+
     this.createPlayer();
     this.setupControls();
     this.createRespawnText();
     this.createScoreDisplay();
+    this.createHighScoreDisplay();
   }
 
   getCurrentSegment() {
@@ -162,10 +189,32 @@ export class Player {
     this.updateScoreDisplay();
   }
 
+  createHighScoreDisplay() {
+    const highScoreDiv = document.createElement("div");
+    highScoreDiv.style.position = "absolute";
+    highScoreDiv.style.top = "20px";
+    highScoreDiv.style.right = "20px"; // Position on right side
+    highScoreDiv.style.fontSize = "24px";
+    highScoreDiv.style.color = "white";
+    highScoreDiv.style.fontFamily = "Arial, sans-serif";
+    highScoreDiv.style.padding = "10px";
+    highScoreDiv.style.backgroundColor = "rgba(0, 0, 0, 0.5)";
+    highScoreDiv.style.borderRadius = "5px";
+    highScoreDiv.id = "highScoreDisplay";
+    document.body.appendChild(highScoreDiv);
+    this.highScoreDisplay = highScoreDiv;
+    this.updateHighScoreDisplay();
+  }
+
   updateScoreDisplay() {
     const speedPercentage = Math.round((this.currentSpeedMultiplier - 1) * 100);
     this.scoreDisplay.textContent = `Score: ${this.score}\nSpeed: +${speedPercentage}%`;
     this.scoreDisplay.style.whiteSpace = "pre-line";
+  }
+
+  updateHighScoreDisplay() {
+    this.highScoreManager.updateHighScore(this.score);
+    this.highScoreDisplay.textContent = `High Score: ${this.highScoreManager.getHighScore()}`;
   }
 
   checkPassedObstacles() {
@@ -179,6 +228,7 @@ export class Player {
         // We passed an obstacle without touching it
         this.score += 1;
         this.updateScoreDisplay();
+        this.updateHighScoreDisplay();
       }
     });
 
