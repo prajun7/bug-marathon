@@ -111,7 +111,7 @@ export class Environment {
   }
 
   createStoneWall(barrierArray, xPosition, zPosition) {
-    const stoneMaterial = new THREE.MeshPhongMaterial({
+    const stoneMaterial = new THREE.MeshStandardMaterial({
       color: 0x708090,
       roughness: 0.8,
       metalness: 0.2,
@@ -333,7 +333,7 @@ export class Environment {
       mesh = new THREE.Mesh(geometry, material);
     } else {
       const geometry = new THREE.SphereGeometry(4, 16, 16);
-      const material = new THREE.MeshPhongMaterial({
+      const material = new THREE.MeshStandardMaterial({
         color: 0xff6600,
         emissive: 0xff6600,
         emissiveIntensity: 0.2,
@@ -405,7 +405,7 @@ export class Environment {
   createPendulum(zPosition, xPosition) {
     // Create the pendulum arm
     const armGeometry = new THREE.BoxGeometry(4, 30, 4);
-    const armMaterial = new THREE.MeshPhongMaterial({
+    const armMaterial = new THREE.MeshStandardMaterial({
       color: 0x888888,
       metalness: 0.8,
       roughness: 0.2,
@@ -414,7 +414,7 @@ export class Environment {
 
     // Create the pendulum weight (sphere)
     const weightGeometry = new THREE.SphereGeometry(8, 16, 16);
-    const weightMaterial = new THREE.MeshPhongMaterial({
+    const weightMaterial = new THREE.MeshStandardMaterial({
       color: 0xff0000,
       emissive: 0xff0000,
       emissiveIntensity: 0.2,
