@@ -32,9 +32,14 @@ export class Player {
     this.jumpCount = 0; // Track number of jumps
     this.maxJumps = 2; // Maximum number of jumps allowed
 
+    // Add score properties
+    this.score = 0;
+    this.lastPassedObstacleZ = 0;
+
     this.createPlayer();
     this.setupControls();
     this.createRespawnText();
+    this.createScoreDisplay();
   }
 
   getCurrentSegment() {
@@ -111,6 +116,44 @@ export class Player {
     this.respawnText = respawnDiv;
   }
 
+  createScoreDisplay() {
+    const scoreDiv = document.createElement("div");
+    scoreDiv.style.position = "absolute";
+    scoreDiv.style.top = "20px";
+    scoreDiv.style.left = "20px";
+    scoreDiv.style.fontSize = "24px";
+    scoreDiv.style.color = "white";
+    scoreDiv.style.fontFamily = "Arial, sans-serif";
+    scoreDiv.style.padding = "10px";
+    scoreDiv.style.backgroundColor = "rgba(0, 0, 0, 0.5)";
+    scoreDiv.style.borderRadius = "5px";
+    scoreDiv.id = "scoreDisplay";
+    document.body.appendChild(scoreDiv);
+    this.scoreDisplay = scoreDiv;
+    this.updateScoreDisplay();
+  }
+
+  updateScoreDisplay() {
+    this.scoreDisplay.textContent = `Score: ${this.score}`;
+  }
+
+  checkPassedObstacles() {
+    const playerZ = this.mesh.position.z;
+
+    this.environment.obstacles.forEach((obstacle) => {
+      const obstacleZ = obstacle.mesh.position.z;
+
+      // Check if we just passed this obstacle
+      if (obstacleZ > playerZ && obstacleZ < this.lastPassedObstacleZ) {
+        // We passed an obstacle without touching it
+        this.score += 1;
+        this.updateScoreDisplay();
+      }
+    });
+
+    this.lastPassedObstacleZ = playerZ;
+  }
+
   checkFall() {
     if (this.isFalling) return true;
 
@@ -163,6 +206,7 @@ export class Player {
     this.mesh.position.y = 4;
     this.mesh.rotation.set(0, 0, 0);
     this.respawnText.style.display = "none";
+    this.lastPassedObstacleZ = this.mesh.position.z; // Reset last passed obstacle
   }
 
   update() {
@@ -182,10 +226,15 @@ export class Player {
     if (this.environment.checkObstacleCollisions(this)) {
       // Only stop if not jumping and not moving sideways
       if (!this.isJumping && Math.abs(this.xVelocity) < 0.1) {
-        // Player is stuck
+        // Player is stuck and loses points
         this.forwardSpeed = 0;
+        this.score = Math.max(0, this.score - 2); // Prevent negative scores
+        this.updateScoreDisplay();
       }
     }
+
+    // Check for passed obstacles
+    this.checkPassedObstacles();
 
     // Apply forward movement
     this.zPosition -= this.forwardSpeed;

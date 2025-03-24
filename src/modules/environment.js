@@ -335,6 +335,7 @@ export class Environment {
 
     mesh.position.set(x, obstacleType === "cube" ? 3 : 4, z);
     mesh.userData.type = obstacleType;
+    mesh.userData.counted = false; // Add this flag to track if we've counted this obstacle
 
     this.scene.scene.add(mesh);
     this.obstacles.push({ mesh });
