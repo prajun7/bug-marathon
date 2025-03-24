@@ -1,11 +1,12 @@
 // At the top of the file, outside the class
 const createHighScoreManager = () => {
-  // Try to load the high score from localStorage, or default to 0
-  let privateHighScore = parseInt(localStorage.getItem("gameHighScore")) || 0;
+  // Set the default high score to 88 if no high score is stored
+  let privateHighScore = parseInt(localStorage.getItem("gameHighScore")) || 88;
 
   return {
     getHighScore: () => privateHighScore,
     updateHighScore: (score) => {
+      // Only update if the new score is greater than the current high score
       if (score > privateHighScore) {
         privateHighScore = score;
         // Save to localStorage whenever we set a new high score
@@ -15,8 +16,8 @@ const createHighScoreManager = () => {
       return false;
     },
     resetHighScore: () => {
-      privateHighScore = 0;
-      localStorage.setItem("gameHighScore", "0");
+      privateHighScore = 88; // Reset to default high score of 88
+      localStorage.setItem("gameHighScore", "88");
     },
   };
 };
