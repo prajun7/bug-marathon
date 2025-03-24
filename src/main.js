@@ -6,7 +6,7 @@ class Game {
   constructor() {
     this.scene = new Scene();
     this.environment = new Environment(this.scene);
-    this.player = new Player(this.scene, this.environment);
+    this.player = new Player(this.scene);
 
     // Start animation loop
     this.animate = this.animate.bind(this);
