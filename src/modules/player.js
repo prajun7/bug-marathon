@@ -36,6 +36,19 @@ export class Player {
     this.score = 0;
     this.lastPassedObstacleZ = 0;
 
+    // Add sliding properties
+    this.isSliding = false;
+    this.slideHeight = 2; // Height while sliding (lower than normal)
+    this.normalHeight = 8; // Normal height
+    this.slideTimer = 0;
+    this.slideDuration = 1000; // Sliding duration in milliseconds
+
+    // Add knockback properties
+    this.isKnockedBack = false;
+    this.knockbackForce = 2.0;
+    this.knockbackDuration = 1000; // milliseconds
+    this.knockbackTimer = 0;
+
     this.createPlayer();
     this.setupControls();
     this.createRespawnText();
@@ -87,6 +100,10 @@ export class Player {
           break;
         case " ": // Space bar
           this.jump();
+          break;
+        case "ArrowDown":
+        case "s":
+          this.startSlide();
           break;
       }
     });
@@ -222,22 +239,42 @@ export class Player {
     // Set default forward speed
     this.forwardSpeed = 1.0;
 
+    // Handle knockback
+    if (this.isKnockedBack) {
+      this.knockbackTimer += 16; // Assuming 60fps
+      if (this.knockbackTimer < this.knockbackDuration) {
+        // Move player backward
+        this.zPosition += this.knockbackForce;
+        // Optional: Add some stumbling animation
+        this.mesh.rotation.x = Math.sin(this.knockbackTimer * 0.01) * 0.2;
+      } else {
+        // End knockback
+        this.isKnockedBack = false;
+        this.mesh.rotation.x = 0;
+      }
+    }
+
     // Check for obstacle collision
     if (this.environment.checkObstacleCollisions(this)) {
       // Only stop if not jumping and not moving sideways
       if (!this.isJumping && Math.abs(this.xVelocity) < 0.1) {
-        // Player is stuck and loses points
         this.forwardSpeed = 0;
-        this.score = Math.max(0, this.score - 2); // Prevent negative scores
-        this.updateScoreDisplay();
+        this.handleObstacleHit();
       }
     }
 
     // Check for passed obstacles
     this.checkPassedObstacles();
 
-    // Apply forward movement
-    this.zPosition -= this.forwardSpeed;
+    // Check for pendulum collisions
+    if (this.environment.checkPendulumCollisions(this)) {
+      this.handlePendulumHit();
+    }
+
+    // Only move forward if not knocked back
+    if (!this.isKnockedBack) {
+      this.zPosition -= this.forwardSpeed;
+    }
 
     // Apply velocity to position
     this.xPosition += this.xVelocity;
@@ -272,6 +309,9 @@ export class Player {
     if (this.isAlive) {
       this.updateCamera(segment.xPosition);
     }
+
+    // Update sliding
+    this.updateSlide(16); // Assuming 60fps, adjust if using different timing
   }
 
   handleWallCollisions(segment) {
@@ -340,5 +380,41 @@ export class Player {
     this.isJumping = false;
     this.jumpVelocity = 0;
     this.mesh.position.y = this.groundY;
+  }
+
+  startSlide() {
+    if (!this.isSliding && !this.isJumping) {
+      this.isSliding = true;
+      this.slideTimer = 0;
+      // Adjust player height for sliding
+      this.mesh.scale.y = 0.25; // Flatten the player
+      this.mesh.position.y = 2; // Lower position while sliding
+    }
+  }
+
+  updateSlide(deltaTime) {
+    if (this.isSliding) {
+      this.slideTimer += deltaTime;
+      if (this.slideTimer >= this.slideDuration) {
+        // End slide
+        this.isSliding = false;
+        this.mesh.scale.y = 1; // Restore normal height
+        this.mesh.position.y = this.groundY;
+      }
+    }
+  }
+
+  handlePendulumHit() {
+    if (!this.isSliding) {
+      this.isKnockedBack = true;
+      this.knockbackTimer = 0;
+      this.score = 0; // Reset score to 0
+      this.updateScoreDisplay();
+    }
+  }
+
+  handleObstacleHit() {
+    this.score = Math.max(0, this.score - 10); // Deduct 10 points, minimum 0
+    this.updateScoreDisplay();
   }
 }
