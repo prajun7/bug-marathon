@@ -110,18 +110,15 @@ export class Player {
   createPlayer() {
     // Make player bigger and brighter
     const geometry = new THREE.BoxGeometry(4, 8, 4);
-    const material = new THREE.MeshPhongMaterial({
+    const material = new THREE.MeshStandardMaterial({
       color: 0x00ff00,
-      emissive: 0x00ff00,
-      emissiveIntensity: 0.3,
-      shininess: 30,
+      roughness: 0.5,
+      metalness: 0.5,
     });
 
     this.mesh = new THREE.Mesh(geometry, material);
     this.mesh.position.set(0, 4, this.zPosition);
     this.scene.scene.add(this.mesh);
-
-    console.log("Player created at:", this.mesh.position);
   }
 
   setupControls() {
@@ -233,7 +230,7 @@ export class Player {
 
   updateScoreDisplay() {
     const speedPercentage = Math.round((this.currentSpeedMultiplier - 1) * 100);
-    this.scoreDisplay.textContent = `Score: ${this.score}\nSpeed: +${speedPercentage}%`;
+    this.scoreDisplay.textContent = `Score: ${this.score}\nSpeed: ${speedPercentage}%`;
     this.scoreDisplay.style.whiteSpace = "pre-line";
   }
 
@@ -270,7 +267,6 @@ export class Player {
     const isOutsideRoad = distanceFromCenter > this.maxOffset;
 
     if (isOutsideRoad) {
-      // Check if there's a barrier at this position
       const side = this.xPosition > 0 ? "right" : "left";
       const hasBarrier = segment.barriers[side].length > 0;
 
@@ -287,6 +283,8 @@ export class Player {
     this.isFalling = true;
     this.isAlive = false;
     this.respawnCountdown = 3;
+    this.score = 0; // Reset score to 0
+    this.resetSpeed(); // Reset speed to 0
     this.showRespawnMessage();
   }
 
