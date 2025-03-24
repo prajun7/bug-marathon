@@ -23,6 +23,15 @@ export class Player {
     this.bounceStrength = 0.5; // Increased bounce strength
     this.xVelocity = 0; // Add velocity for smoother bounce
 
+    // Jump properties
+    this.isJumping = false;
+    this.jumpForce = 1;
+    this.gravity = 0.05;
+    this.jumpVelocity = 0;
+    this.groundY = 4; // Normal height of player above ground
+    this.jumpCount = 0; // Track number of jumps
+    this.maxJumps = 2; // Maximum number of jumps allowed
+
     this.createPlayer();
     this.setupControls();
     this.createRespawnText();
@@ -70,6 +79,9 @@ export class Player {
         case "ArrowRight":
         case "d":
           this.xVelocity = this.moveSpeed;
+          break;
+        case " ": // Space bar
+          this.jump();
           break;
       }
     });
@@ -170,6 +182,20 @@ export class Player {
     // Apply velocity to position
     this.xPosition += this.xVelocity;
 
+    // Handle jumping
+    if (this.isJumping) {
+      this.mesh.position.y += this.jumpVelocity;
+      this.jumpVelocity -= this.gravity;
+
+      // Check if landed
+      if (this.mesh.position.y <= this.groundY) {
+        this.mesh.position.y = this.groundY;
+        this.isJumping = false;
+        this.jumpVelocity = 0;
+        this.jumpCount = 0; // Reset jump count when landing
+      }
+    }
+
     // Dampen velocity
     this.xVelocity *= 0.9;
 
@@ -226,5 +252,33 @@ export class Player {
       0, // Ground level
       this.zPosition - 30
     );
+  }
+
+  jump() {
+    // Only allow jump if we haven't reached max jumps
+    if (this.jumpCount < this.maxJumps) {
+      this.isJumping = true;
+      this.jumpVelocity = this.jumpForce;
+      this.jumpCount++;
+
+      // Optional: Make second jump slightly weaker
+      if (this.jumpCount === 2) {
+        this.jumpVelocity = this.jumpForce * 0.8;
+      }
+    }
+  }
+
+  // Optional: Add visual feedback for double jump
+  getJumpState() {
+    if (!this.isJumping) return "grounded";
+    return this.jumpCount === 1 ? "first-jump" : "second-jump";
+  }
+
+  // Optional: Add method to reset jump state
+  resetJumps() {
+    this.jumpCount = 0;
+    this.isJumping = false;
+    this.jumpVelocity = 0;
+    this.mesh.position.y = this.groundY;
   }
 }
