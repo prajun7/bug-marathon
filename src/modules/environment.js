@@ -70,7 +70,12 @@ export class Environment {
     // Create smooth curve from points
     const curve = new THREE.CatmullRomCurve3(this.splinePoints);
 
-    // Create road geometry
+    // Get position and rotation from curve
+    const curvePoint = curve.getPoint(0.5);
+    const tangent = curve.getTangent(0.5);
+    const angle = Math.atan2(tangent.x, tangent.z);
+
+    // Create road using the same geometry as before
     const roadGeometry = new THREE.BoxGeometry(
       this.roadWidth,
       2,
@@ -81,18 +86,13 @@ export class Environment {
       shininess: 10,
     });
 
-    // Get position and rotation from curve
-    const curvePoint = curve.getPoint(0.5);
-    const tangent = curve.getTangent(0.5);
-    const angle = Math.atan2(tangent.x, tangent.z);
-
     const road = new THREE.Mesh(roadGeometry, roadMaterial);
     road.position.set(curvePoint.x, -1, zPosition);
     road.rotation.y = angle;
     this.scene.scene.add(road);
 
-    // Create barriers along curve
-    const barriers = this.createBarriersAlongCurve(curve, zPosition);
+    // Create barriers that exactly match the road's edges
+    const barriers = this.createMatchingBarriers(road);
 
     return {
       road,
@@ -104,77 +104,46 @@ export class Environment {
     };
   }
 
-  createBarriersAlongCurve(curve, zPosition) {
+  createMatchingBarriers(road) {
     const barriers = { left: [], right: [] };
 
-    if (Math.random() < 0.3) return barriers;
+    // Create barrier geometry that's slightly taller than the road
+    const barrierGeometry = new THREE.BoxGeometry(
+      1, // width
+      4, // height
+      this.segmentLength // same length as road segment
+    );
 
-    const hasLeftWall = Math.random() < 0.6;
-    const hasRightWall = Math.random() < 0.6;
-
-    if (hasLeftWall || hasRightWall) {
-      // Get points along the curve
-      const numPoints = 10;
-      for (let i = 0; i < numPoints; i++) {
-        const t = i / (numPoints - 1);
-        const point = curve.getPoint(t);
-        const tangent = curve.getTangent(t);
-
-        if (hasLeftWall) {
-          const normal = new THREE.Vector3(
-            -tangent.z,
-            0,
-            tangent.x
-          ).normalize();
-          this.createStoneWallSection(
-            barriers.left,
-            point.x + normal.x * (this.roadWidth / 2 + 1),
-            zPosition - (i * this.segmentLength) / numPoints,
-            Math.atan2(tangent.x, tangent.z)
-          );
-        }
-        if (hasRightWall) {
-          const normal = new THREE.Vector3(
-            tangent.z,
-            0,
-            -tangent.x
-          ).normalize();
-          this.createStoneWallSection(
-            barriers.right,
-            point.x + normal.x * (this.roadWidth / 2 + 1),
-            zPosition - (i * this.segmentLength) / numPoints,
-            Math.atan2(tangent.x, tangent.z)
-          );
-        }
-      }
-    }
-
-    return barriers;
-  }
-
-  createStoneWallSection(barrierArray, x, z, angle) {
-    const stoneMaterial = new THREE.MeshPhongMaterial({
+    const barrierMaterial = new THREE.MeshPhongMaterial({
       color: 0x707070,
-      roughness: 0.8,
-      metalness: 0.2,
       flatShading: true,
     });
 
-    const wallHeight = 3;
-    const stoneWidth = 1;
-    const stoneHeight = 0.5;
+    // Create left barrier
+    const leftBarrier = new THREE.Mesh(barrierGeometry, barrierMaterial);
+    // Position exactly at left edge of road
+    leftBarrier.position.copy(road.position);
+    leftBarrier.position.x -= this.roadWidth / 2;
+    leftBarrier.position.y += 2; // Raise up slightly
+    leftBarrier.rotation.copy(road.rotation);
+    leftBarrier.userData.isBarrier = true;
+    leftBarrier.userData.pushForce = 15;
+    this.scene.scene.add(leftBarrier);
+    barriers.left.push(leftBarrier);
 
-    for (let y = 0; y < wallHeight; y++) {
-      const stone = new THREE.Mesh(this.stoneGeometry, stoneMaterial);
-      stone.position.set(x + (y % 2) * (stoneWidth / 2), y * stoneHeight, z);
-      stone.rotation.y = angle;
+    // Create right barrier
+    const rightBarrier = new THREE.Mesh(barrierGeometry, barrierMaterial);
+    // Position exactly at right edge of road
+    rightBarrier.position.copy(road.position);
+    rightBarrier.position.x += this.roadWidth / 2;
+    rightBarrier.position.y += 2; // Raise up slightly
+    rightBarrier.rotation.copy(road.rotation);
+    rightBarrier.userData.isBarrier = true;
+    rightBarrier.userData.pushForce = 15;
+    this.scene.scene.add(rightBarrier);
+    barriers.right.push(rightBarrier);
 
-      this.scene.scene.add(stone);
-      barrierArray.push(stone);
-
-      stone.userData.isBarrier = true;
-      stone.userData.pushForce = 15;
-    }
+    return barriers;
   }
 
   createCloud() {
