@@ -175,8 +175,19 @@ export class Player {
       return;
     }
 
-    // Forward movement
+    // Set default forward speed
     this.forwardSpeed = 1.0;
+
+    // Check for obstacle collision
+    if (this.environment.checkObstacleCollisions(this)) {
+      // Only stop if not jumping and not moving sideways
+      if (!this.isJumping && Math.abs(this.xVelocity) < 0.1) {
+        // Player is stuck
+        this.forwardSpeed = 0;
+      }
+    }
+
+    // Apply forward movement
     this.zPosition -= this.forwardSpeed;
 
     // Apply velocity to position
