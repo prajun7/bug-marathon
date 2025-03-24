@@ -5,17 +5,69 @@ export class Environment {
     // Runway properties
     const fov = this.scene.camera.fov * (Math.PI / 180);
     const height = 2 * Math.tan(fov / 2) * 30;
-    this.runwayWidth = height * this.scene.camera.aspect * 0.7; // Slightly narrower
+    this.runwayWidth = height * this.scene.camera.aspect * 0.7;
     this.segmentLength = 80;
     this.visibleSegments = 12;
 
-    // Store all runway segments
+    // Enhanced turning parameters
+    this.currentX = 0;
+    this.targetX = 0;
+    this.turnDirection = 0;
+    this.turnTimer = 0;
+    this.turnDuration = 3; // Shorter duration for more frequent turns
+    this.turnMagnitude = 5; // Increased turn sharpness
+    this.turnChance = 0.6; // 60% chance to turn (up from 30%)
+    this.straightDuration = 2; // Shorter straight sections
+
     this.segments = [];
     this.createInitialSegments();
   }
 
+  updatePath() {
+    this.turnTimer--;
+
+    // More frequent turn decisions
+    if (this.turnTimer <= 0) {
+      if (Math.random() < this.turnChance) {
+        // Increased chance to turn
+        // Possibility of continuing in same direction for longer curves
+        if (this.turnDirection !== 0 && Math.random() < 0.3) {
+          // Keep current direction
+          this.turnTimer = this.turnDuration;
+        } else {
+          // New random direction
+          this.turnDirection = Math.random() < 0.5 ? -1 : 1;
+          this.turnTimer = this.turnDuration;
+        }
+      } else {
+        this.turnDirection = 0;
+        this.turnTimer = this.straightDuration;
+      }
+    }
+
+    // Update current X position with more pronounced turns
+    if (this.turnDirection !== 0) {
+      this.currentX += this.turnDirection * this.turnMagnitude;
+
+      // Add slight variation to turn magnitude for more natural feeling
+      const turnVariation = (Math.random() - 0.5) * 0.5;
+      this.currentX += this.turnDirection * turnVariation;
+
+      // Limit maximum deviation with wider bounds
+      this.currentX = Math.max(-70, Math.min(70, this.currentX));
+    }
+
+    // Add subtle wobble even during straight sections
+    if (this.turnDirection === 0) {
+      this.currentX += (Math.random() - 0.5) * 0.5;
+    }
+  }
+
   createSegment(zPosition) {
-    // Create textured runway
+    // Update path direction
+    this.updatePath();
+
+    // Create runway with slight banking on turns
     const runwayGeometry = new THREE.BoxGeometry(
       this.runwayWidth,
       1,
@@ -28,53 +80,64 @@ export class Environment {
     });
 
     const runway = new THREE.Mesh(runwayGeometry, runwayMaterial);
-    runway.position.set(0, -0.5, zPosition - this.segmentLength / 2);
+    runway.position.set(
+      this.currentX,
+      -0.5,
+      zPosition - this.segmentLength / 2
+    );
+    // Add slight banking effect on turns
+    runway.rotation.z = -this.turnDirection * 0.05;
     runway.receiveShadow = true;
     this.scene.scene.add(runway);
 
-    // Create decorated barriers
-    const barrierGeometry = new THREE.BoxGeometry(2, 6, this.segmentLength);
-    const barrierMaterial = new THREE.MeshPhongMaterial({
-      color: 0x505050,
-      roughness: 0.7,
-      metalness: 0.3,
-    });
-
-    // Add temple-like decorations on barriers
-    const decorationSpacing = 20;
-    const decorations = [];
-
-    for (let z = 0; z < this.segmentLength; z += decorationSpacing) {
-      const leftDecoration = this.createDecoration();
-      leftDecoration.position.set(
-        -(this.runwayWidth / 2 + 1),
-        3,
-        zPosition - z
-      );
-
-      const rightDecoration = this.createDecoration();
-      rightDecoration.position.set(this.runwayWidth / 2 + 1, 3, zPosition - z);
-
-      decorations.push(leftDecoration, rightDecoration);
-      this.scene.scene.add(leftDecoration, rightDecoration);
-    }
-
-    // Add ground texture beyond runway
+    // Ground follows the path
     const groundGeometry = new THREE.PlaneGeometry(200, this.segmentLength);
     const groundMaterial = new THREE.MeshPhongMaterial({
-      color: 0x285728, // Dark grass color
+      color: 0x285728,
       side: THREE.DoubleSide,
     });
     const ground = new THREE.Mesh(groundGeometry, groundMaterial);
     ground.rotation.x = -Math.PI / 2;
-    ground.position.set(0, -0.6, zPosition - this.segmentLength / 2);
+    ground.position.set(
+      this.currentX,
+      -0.6,
+      zPosition - this.segmentLength / 2
+    );
     this.scene.scene.add(ground);
+
+    // Add decorations following the path
+    const decorations = [];
+    const decorationSpacing = 20;
+
+    for (let z = 0; z < this.segmentLength; z += decorationSpacing) {
+      const leftDecoration = this.createDecoration();
+      leftDecoration.position.set(
+        this.currentX - (this.runwayWidth / 2 + 1),
+        3,
+        zPosition - z
+      );
+      // Tilt decorations slightly with turn
+      leftDecoration.rotation.z = -this.turnDirection * 0.05;
+
+      const rightDecoration = this.createDecoration();
+      rightDecoration.position.set(
+        this.currentX + (this.runwayWidth / 2 + 1),
+        3,
+        zPosition - z
+      );
+      rightDecoration.rotation.z = -this.turnDirection * 0.05;
+
+      decorations.push(leftDecoration, rightDecoration);
+      this.scene.scene.add(leftDecoration, rightDecoration);
+    }
 
     return {
       runway,
       decorations,
       ground,
       zPosition,
+      xPosition: this.currentX,
+      turnDirection: this.turnDirection,
     };
   }
 

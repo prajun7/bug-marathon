@@ -58,10 +58,10 @@ export class Scene {
   }
 
   updateCameraPosition(playerPosition) {
-    // Temple Run-like camera positioning
-    const cameraHeight = 15;
-    const cameraDistance = 25;
-    const lookAheadDistance = 20;
+    // Smoother camera follow
+    const cameraHeight = 25;
+    const cameraDistance = 35;
+    const lookAheadDistance = 30;
 
     // Position camera behind and above player
     this.camera.position.x = playerPosition.x * 0.8; // Smooth out lateral movement
@@ -70,8 +70,8 @@ export class Scene {
 
     // Look ahead of the player
     this.camera.lookAt(
-      playerPosition.x * 0.5, // Smooth camera rotation on turns
-      playerPosition.y + 2, // Look slightly above player
+      playerPosition.x * 0.5,
+      2,
       playerPosition.z - lookAheadDistance
     );
   }

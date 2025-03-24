@@ -1,10 +1,12 @@
 export class Player {
-  constructor(scene) {
+  constructor(scene, environment) {
     this.scene = scene;
+    this.environment = environment;
 
     // Reduced speed settings
-    this.speed = 0.25; // Halved from 0.5
-    this.lateralSpeed = 0.4; // Halved from 0.8
+    this.speed = 2;
+    this.lateralSpeed = 0.4;
+    this.autoAlignStrength = 0.15; // Increased to better follow turns
 
     this.createPlayer();
     this.setupControls();
@@ -26,15 +28,20 @@ export class Player {
 
   setupControls() {
     document.addEventListener("keydown", (e) => {
-      const maxX = this.scene.runwayWidth / 2 - 2; // Keep player within runway
+      const maxX = this.environment.runwayWidth / 2 - 2;
+      const currentSegment = this.getCurrentSegment();
+      const localX = this.mesh.position.x - currentSegment.xPosition;
+
+      if (!currentSegment) return;
+
       switch (e.key) {
         case "ArrowLeft":
-          if (this.mesh.position.x > -maxX) {
+          if (localX > -maxX) {
             this.mesh.position.x -= this.lateralSpeed;
           }
           break;
         case "ArrowRight":
-          if (this.mesh.position.x < maxX) {
+          if (localX < maxX) {
             this.mesh.position.x += this.lateralSpeed;
           }
           break;
@@ -42,11 +49,46 @@ export class Player {
     });
   }
 
+  getCurrentSegment() {
+    // Find the segment the player is currently on
+    for (const segment of this.environment.segments) {
+      if (
+        this.mesh.position.z >
+          segment.zPosition - this.environment.segmentLength &&
+        this.mesh.position.z <= segment.zPosition
+      ) {
+        return segment;
+      }
+    }
+    return this.environment.segments[0];
+  }
+
   update() {
-    // Move forward continuously
+    // Move forward
     this.mesh.position.z -= this.speed;
 
-    // Update camera to follow player
+    // Get current segment
+    const currentSegment = this.getCurrentSegment();
+    if (currentSegment) {
+      // Auto-align with road
+      const targetX = currentSegment.xPosition;
+      const dx = targetX - this.mesh.position.x;
+      this.mesh.position.x += dx * this.autoAlignStrength;
+
+      // Enhanced player rotation for turns
+      if (currentSegment.turnDirection !== 0) {
+        // Rotate player more during turns
+        this.mesh.rotation.y = currentSegment.turnDirection * 0.3;
+        // Add slight tilt during turns
+        this.mesh.rotation.z = -currentSegment.turnDirection * 0.1;
+      } else {
+        // Smoothly return to straight
+        this.mesh.rotation.y *= 0.95;
+        this.mesh.rotation.z *= 0.95;
+      }
+    }
+
+    // Update camera
     this.scene.updateCameraPosition(this.mesh.position);
   }
 }
