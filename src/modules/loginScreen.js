@@ -1,14 +1,15 @@
 export class LoginScreen {
   constructor(onGameStart) {
     this.onGameStart = onGameStart;
-    this.username = '';
+    // Get saved username from localStorage if available
+    this.username = localStorage.getItem("bugMarathonUsername") || "";
     this.createLoginUI();
   }
 
   createLoginUI() {
     // Create container
-    const container = document.createElement('div');
-    container.id = 'login-screen';
+    const container = document.createElement("div");
+    container.id = "login-screen";
     container.style.cssText = `
       position: absolute;
       top: 0;
@@ -24,8 +25,8 @@ export class LoginScreen {
     `;
 
     // Create title
-    const title = document.createElement('h1');
-    title.textContent = 'Bug Marathon';
+    const title = document.createElement("h1");
+    title.textContent = "Bug Marathon";
     title.style.cssText = `
       color: #fff;
       margin-bottom: 30px;
@@ -33,9 +34,23 @@ export class LoginScreen {
     `;
 
     // Create username input
-    const usernameInput = document.createElement('input');
-    usernameInput.type = 'text';
-    usernameInput.placeholder = 'Enter your username';
+    const usernameInput = document.createElement("input");
+    usernameInput.type = "text";
+    usernameInput.placeholder = "Enter your username";
+    // Pre-fill with saved username if available
+    if (this.username) {
+      usernameInput.value = this.username;
+      // Need to set this variable here so we can reference it when we update the button state
+      const savedUsername = this.username;
+      // Use setTimeout to ensure this runs after the button is created and styled
+      setTimeout(() => {
+        if (savedUsername.trim() !== "") {
+          startButton.disabled = false;
+          startButton.style.backgroundColor = "#4CAF50";
+          startButton.style.cursor = "pointer";
+        }
+      }, 0);
+    }
     usernameInput.style.cssText = `
       padding: 10px;
       font-size: 18px;
@@ -44,24 +59,24 @@ export class LoginScreen {
       border: none;
       border-radius: 5px;
     `;
-    usernameInput.addEventListener('input', (e) => {
+    usernameInput.addEventListener("input", (e) => {
       this.username = e.target.value;
-      
+
       // Enable/disable button based on username
-      if (this.username.trim() !== '') {
+      if (this.username.trim() !== "") {
         startButton.disabled = false;
-        startButton.style.backgroundColor = '#4CAF50';
-        startButton.style.cursor = 'pointer';
+        startButton.style.backgroundColor = "#4CAF50";
+        startButton.style.cursor = "pointer";
       } else {
         startButton.disabled = true;
-        startButton.style.backgroundColor = '#cccccc';
-        startButton.style.cursor = 'not-allowed';
+        startButton.style.backgroundColor = "#cccccc";
+        startButton.style.cursor = "not-allowed";
       }
     });
 
     // Create start button
-    const startButton = document.createElement('button');
-    startButton.textContent = 'Join the Game';
+    const startButton = document.createElement("button");
+    startButton.textContent = "Join the Game";
     startButton.disabled = true; // Disabled by default
     startButton.style.cssText = `
       padding: 10px 20px;
@@ -73,18 +88,20 @@ export class LoginScreen {
       cursor: not-allowed;
       transition: background-color 0.3s;
     `;
-    startButton.addEventListener('mouseover', () => {
+    startButton.addEventListener("mouseover", () => {
       if (!startButton.disabled) {
-        startButton.style.backgroundColor = '#45a049';
+        startButton.style.backgroundColor = "#45a049";
       }
     });
-    startButton.addEventListener('mouseout', () => {
+    startButton.addEventListener("mouseout", () => {
       if (!startButton.disabled) {
-        startButton.style.backgroundColor = '#4CAF50';
+        startButton.style.backgroundColor = "#4CAF50";
       }
     });
-    startButton.addEventListener('click', () => {
-      if (this.username.trim() !== '') {
+    startButton.addEventListener("click", () => {
+      if (this.username.trim() !== "") {
+        // Save username to localStorage
+        localStorage.setItem("bugMarathonUsername", this.username);
         this.hide();
         this.onGameStart(this.username);
       }

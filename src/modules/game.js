@@ -23,9 +23,9 @@ export class Game {
   }
 
   startGame(username) {
-    // Create player with username
-    this.player = new Player(this.scene, this.environment, username);
-    console.log("Player initialized with username:", username);
+    // Create player (username is stored in localStorage but not used by player class)
+    this.player = new Player(this.scene, this.environment);
+    console.log("Player initialized with username from login:", username);
     this.gameStarted = true;
 
     // Start the game loop
