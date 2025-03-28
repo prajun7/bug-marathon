@@ -47,6 +47,7 @@ export class LoginScreen {
         if (savedUsername.trim() !== "") {
           startButton.disabled = false;
           startButton.style.backgroundColor = "#4CAF50";
+          startButton.style.color = "white";
           startButton.style.cursor = "pointer";
         }
       }, 0);
@@ -66,10 +67,12 @@ export class LoginScreen {
       if (this.username.trim() !== "") {
         startButton.disabled = false;
         startButton.style.backgroundColor = "#4CAF50";
+        startButton.style.color = "white";
         startButton.style.cursor = "pointer";
       } else {
         startButton.disabled = true;
         startButton.style.backgroundColor = "#cccccc";
+        startButton.style.color = "gray";
         startButton.style.cursor = "not-allowed";
       }
     });
@@ -82,11 +85,11 @@ export class LoginScreen {
       padding: 10px 20px;
       font-size: 18px;
       background-color: #cccccc;
-      color: white;
+      color: black;
       border: none;
       border-radius: 5px;
       cursor: not-allowed;
-      transition: background-color 0.3s;
+      transition: background-color 0.3s, color 0.3s;
     `;
     startButton.addEventListener("mouseover", () => {
       if (!startButton.disabled) {
