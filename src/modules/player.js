@@ -63,6 +63,7 @@ export class Player {
     this.groundY = 4; // Normal height of player above ground
     this.jumpCount = 0; // Track number of jumps
     this.maxJumps = 2; // Maximum number of jumps allowed
+    this.maxOffsetWhileJumping = this.environment.roadWidth; // Max distance player can jump outside
 
     // Add score properties
     this.score = 0;
@@ -421,6 +422,10 @@ export class Player {
     // Apply velocity to position
     this.xPosition += this.xVelocity;
 
+    // Get the current segment first
+    const segment = this.getCurrentSegment();
+    if (!segment) return;
+
     // Handle jumping
     if (this.isJumping) {
       this.mesh.position.y += this.jumpVelocity;
@@ -432,17 +437,19 @@ export class Player {
         this.isJumping = false;
         this.jumpVelocity = 0;
         this.jumpCount = 0; // Reset jump count when landing
+
+        // Check if player landed outside road boundaries
+        this.checkLandingOutsideRoad(segment);
       }
     }
 
     // Adjust damping for smoother movement at slower speeds
     this.xVelocity *= 0.85;
 
-    const segment = this.getCurrentSegment();
-    if (!segment) return;
-
-    // Check wall collisions
-    this.handleWallCollisions(segment);
+    // Check wall collisions only if not jumping
+    if (!this.isJumping) {
+      this.handleWallCollisions(segment);
+    }
 
     // Update position
     this.mesh.position.x = this.xPosition;
@@ -459,11 +466,28 @@ export class Player {
     this.updateScoreDisplay();
   }
 
-  handleWallCollisions(segment) {
+  checkLandingOutsideRoad(segment) {
+    // Check if player landed outside road boundaries
     const distanceFromCenter = Math.abs(this.xPosition);
     const isOutsideRoad = distanceFromCenter > this.maxOffset;
 
     if (isOutsideRoad) {
+      // Player landed outside the road - make them fall regardless of barrier
+      // This ensures you fall when landing outside, making the jump mechanic consistent
+      this.startFalling();
+    }
+  }
+
+  handleWallCollisions(segment) {
+    // Use different boundary limits depending on whether player is jumping
+    const currentMaxOffset = this.isJumping
+      ? this.maxOffsetWhileJumping
+      : this.maxOffset;
+    const distanceFromCenter = Math.abs(this.xPosition);
+    const isOutsideRoad = distanceFromCenter > currentMaxOffset;
+
+    // If outside road and not jumping (normal movement)
+    if (isOutsideRoad && !this.isJumping) {
       const side = this.xPosition > 0 ? "right" : "left";
       const hasBarrier = segment.barriers[side].length > 0;
 
@@ -480,6 +504,10 @@ export class Player {
         // No barrier, player can fall
         this.startFalling();
       }
+    } else if (isOutsideRoad && this.isJumping) {
+      // Player is jumping and has gone extremely far (past maxOffsetWhileJumping)
+      // Only limit their position at the extreme boundary
+      this.xPosition = currentMaxOffset * (this.xPosition > 0 ? 1 : -1);
     }
   }
 
@@ -505,6 +533,9 @@ export class Player {
       this.isJumping = true;
       this.jumpVelocity = this.jumpForce;
       this.jumpCount++;
+
+      // Temporarily increase maxOffset to allow jumping outside walls
+      this.maxOffsetWhileJumping = this.environment.roadWidth;
 
       // Optional: Make second jump slightly weaker
       if (this.jumpCount === 2) {
