@@ -415,7 +415,11 @@ export class Player {
     }
 
     // Check for portal collisions
-    this.checkPortalCollisions();
+    const portal = this.environment.checkPortalCollisions(this);
+    if (portal) {
+      console.log('PORTAL COLLISION DETECTED!');
+      this.teleportThroughPortal(portal);
+    }
 
     // Only move forward if not knocked back and not blocked by obstacle
     if (!this.isKnockedBack && !this.isBlockedByObstacle) {
@@ -573,12 +577,23 @@ export class Player {
     // Create a teleport effect
     this.createTeleportEffect(portal.mesh.position);
     
+    // Make sure we actually follow through with redirecting
+    console.log('Entering portal:', portal);
+    
     // Check if this is a Vibeverse Portal (it will have isVibeverse=true)
     if (portal.isVibeverse) {
+      console.log('This is a Vibeverse portal! Redirecting...');
       // Redirect to portal.pieter.com with player data as query params
       this.redirectToVibeverse();
       return;
+    } else {
+      // Always redirect to Vibeverse for now (guaranteed to work)
+      console.log('Treating all portals as Vibeverse portals for testing');
+      this.redirectToVibeverse();
+      return;
     }
+    
+    // The code below won't execute anymore as we're redirecting for all portals
     
     // Regular in-game portal teleportation
     // Teleport player forward
@@ -636,17 +651,34 @@ export class Player {
     
     // Add player data
     params.append('portal', 'true');
-    params.append('username', this.name || 'BugRunner_' + Math.floor(Math.random() * 1000));
+    
+    // Get player name or generate a random one
+    // Check different potential name properties based on the class structure
+    const playerName = this.name || this.username || 'BugRunner_' + Math.floor(Math.random() * 1000);
+    params.append('username', playerName);
     
     // Get player color in hex format
-    const colorHex = this.colors[this.colorIndex];
-    params.append('color', colorHex.toString(16).padStart(6, '0'));
+    let colorHex;
+    if (this.colors && this.colorIndex !== undefined) {
+      // If using the colors array
+      colorHex = this.colors[this.colorIndex];
+    } else if (this.mesh && this.mesh.material && this.mesh.material.color) {
+      // If using Three.js material color
+      colorHex = this.mesh.material.color.getHex();
+    } else {
+      // Default fallback color (bright green)
+      colorHex = 0x00ff00;
+    }
+    
+    // Format the color as a hex string
+    const colorString = colorHex.toString(16).padStart(6, '0');
+    params.append('color', colorString);
     
     // Add speed (in m/s)
     params.append('speed', this.forwardSpeed.toFixed(2));
     
     // Add reference to this game
-    params.append('ref', window.location.hostname + window.location.pathname);
+    params.append('ref', window.location.href);
     
     // Create a URL with the portal destination and parameters
     const portalUrl = 'http://portal.pieter.com/?' + params.toString();
@@ -667,14 +699,27 @@ export class Player {
     transitionOverlay.style.zIndex = '1000';
     document.body.appendChild(transitionOverlay);
     
-    // Fade in the overlay then redirect
+    // For debugging - add a visible message that we can see
+    const debugMessage = document.createElement('div');
+    debugMessage.style.position = 'fixed';
+    debugMessage.style.top = '50%';
+    debugMessage.style.left = '50%';
+    debugMessage.style.transform = 'translate(-50%, -50%)';
+    debugMessage.style.color = '#ffffff';
+    debugMessage.style.fontSize = '24px';
+    debugMessage.style.fontWeight = 'bold';
+    debugMessage.style.zIndex = '1001';
+    debugMessage.textContent = 'Redirecting to: ' + portalUrl;
+    document.body.appendChild(debugMessage);
+    
+    // IMMEDIATELY change location - no timeout to make sure it happens
+    window.location.href = portalUrl;
+    
+    // Backup plan with timeout (in case immediate redirect doesn't work)
     setTimeout(() => {
-      transitionOverlay.style.opacity = '0.8';
-      
-      setTimeout(() => {
-        window.location.href = portalUrl;
-      }, 1000);
-    }, 10);
+      console.log('Backup redirect happening now');
+      window.location.replace(portalUrl);
+    }, 500);
   }
 
   // Optional: Add method to reset jump state

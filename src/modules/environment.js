@@ -644,7 +644,7 @@ export class Environment {
   }
 
   checkPortalCollisions(player) {
-    if (!player.isJumping) return false; // Only allow portal entry while jumping
+    // Allow portal entry anytime (removed jumping requirement)
 
     for (const portal of this.portals) {
       if (!portal.active) continue;
