@@ -108,11 +108,42 @@ export class Player {
     return this.environment.segments[0];
   }
 
+  // Generate a random color that's different from road and rock colors
+  generateRandomPlayerColor() {
+    // Colors to avoid (road, rocks, and previous green)
+    const avoidColors = [0x333333, 0x708090];
+
+    // Predefined vibrant colors that contrast well with the environment
+    const colorOptions = [
+      0xff0000, // Red
+      0x0000ff, // Blue
+      0xff00ff, // Magenta
+      0xffff00, // Yellow
+      0x00ffff, // Cyan
+      0xff8000, // Orange
+      0x8000ff, // Purple
+      0xff0080, // Pink
+      0x80ff00, // Lime
+      0x00ff00, // Green
+    ];
+
+    // Filter out any colors that are too similar to the ones we want to avoid
+    const safeColors = colorOptions.filter((color) => {
+      return !avoidColors.some(
+        (avoidColor) => Math.abs(color - avoidColor) < 0x333333
+      );
+    });
+
+    // Choose a random color from the safe colors
+    const randomIndex = Math.floor(Math.random() * safeColors.length);
+    return safeColors[randomIndex];
+  }
+
   createPlayer() {
     // Make player bigger and brighter
     const geometry = new THREE.BoxGeometry(4, 8, 4);
     const material = new THREE.MeshStandardMaterial({
-      color: 0x00ff00,
+      color: this.generateRandomPlayerColor(),
       roughness: 0.5,
       metalness: 0.5,
     });
