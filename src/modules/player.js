@@ -63,6 +63,7 @@ export class Player {
     this.groundY = 4; // Normal height of player above ground
     this.jumpCount = 0; // Track number of jumps
     this.maxJumps = 2; // Maximum number of jumps allowed
+    this.maxOffsetWhileJumping = this.environment.roadWidth; // Max distance player can jump outside
 
     // Add score properties
     this.score = 0;
@@ -413,6 +414,13 @@ export class Player {
       this.handlePendulumHit();
     }
 
+    // Check for portal collisions
+    const portal = this.environment.checkPortalCollisions(this);
+    if (portal) {
+      console.log('PORTAL COLLISION DETECTED!');
+      this.teleportThroughPortal(portal);
+    }
+
     // Only move forward if not knocked back and not blocked by obstacle
     if (!this.isKnockedBack && !this.isBlockedByObstacle) {
       this.zPosition -= this.forwardSpeed;
@@ -420,6 +428,10 @@ export class Player {
 
     // Apply velocity to position
     this.xPosition += this.xVelocity;
+
+    // Get the current segment first
+    const segment = this.getCurrentSegment();
+    if (!segment) return;
 
     // Handle jumping
     if (this.isJumping) {
@@ -432,17 +444,19 @@ export class Player {
         this.isJumping = false;
         this.jumpVelocity = 0;
         this.jumpCount = 0; // Reset jump count when landing
+
+        // Check if player landed outside road boundaries
+        this.checkLandingOutsideRoad(segment);
       }
     }
 
     // Adjust damping for smoother movement at slower speeds
     this.xVelocity *= 0.85;
 
-    const segment = this.getCurrentSegment();
-    if (!segment) return;
-
-    // Check wall collisions
-    this.handleWallCollisions(segment);
+    // Check wall collisions only if not jumping
+    if (!this.isJumping) {
+      this.handleWallCollisions(segment);
+    }
 
     // Update position
     this.mesh.position.x = this.xPosition;
@@ -459,11 +473,28 @@ export class Player {
     this.updateScoreDisplay();
   }
 
-  handleWallCollisions(segment) {
+  checkLandingOutsideRoad(segment) {
+    // Check if player landed outside road boundaries
     const distanceFromCenter = Math.abs(this.xPosition);
     const isOutsideRoad = distanceFromCenter > this.maxOffset;
 
     if (isOutsideRoad) {
+      // Player landed outside the road - make them fall regardless of barrier
+      // This ensures you fall when landing outside, making the jump mechanic consistent
+      this.startFalling();
+    }
+  }
+
+  handleWallCollisions(segment) {
+    // Use different boundary limits depending on whether player is jumping
+    const currentMaxOffset = this.isJumping
+      ? this.maxOffsetWhileJumping
+      : this.maxOffset;
+    const distanceFromCenter = Math.abs(this.xPosition);
+    const isOutsideRoad = distanceFromCenter > currentMaxOffset;
+
+    // If outside road and not jumping (normal movement)
+    if (isOutsideRoad && !this.isJumping) {
       const side = this.xPosition > 0 ? "right" : "left";
       const hasBarrier = segment.barriers[side].length > 0;
 
@@ -480,6 +511,10 @@ export class Player {
         // No barrier, player can fall
         this.startFalling();
       }
+    } else if (isOutsideRoad && this.isJumping) {
+      // Player is jumping and has gone extremely far (past maxOffsetWhileJumping)
+      // Only limit their position at the extreme boundary
+      this.xPosition = currentMaxOffset * (this.xPosition > 0 ? 1 : -1);
     }
   }
 
@@ -506,6 +541,9 @@ export class Player {
       this.jumpVelocity = this.jumpForce;
       this.jumpCount++;
 
+      // Temporarily increase maxOffset to allow jumping outside walls
+      this.maxOffsetWhileJumping = this.environment.roadWidth;
+
       // Optional: Make second jump slightly weaker
       if (this.jumpCount === 2) {
         this.jumpVelocity = this.jumpForce * 0.8;
@@ -517,6 +555,171 @@ export class Player {
   getJumpState() {
     if (!this.isJumping) return "grounded";
     return this.jumpCount === 1 ? "first-jump" : "second-jump";
+  }
+
+  checkPortalCollisions() {
+    // Only check if player is alive and jumping (can only enter portals while jumping)
+    if (!this.isAlive || !this.isJumping) return;
+
+    // Check for portal collision using Environment's method
+    const portal = this.environment.checkPortalCollisions(this);
+
+    if (portal) {
+      // Player has entered a portal
+      this.teleportThroughPortal(portal);
+    }
+  }
+
+  teleportThroughPortal(portal) {
+    // Deactivate the portal so it can't be used again
+    portal.active = false;
+
+    // Create a teleport effect
+    this.createTeleportEffect(portal.mesh.position);
+    
+    // Make sure we actually follow through with redirecting
+    console.log('Entering portal:', portal);
+    
+    // Check if this is a Vibeverse Portal (it will have isVibeverse=true)
+    if (portal.isVibeverse) {
+      console.log('This is a Vibeverse portal! Redirecting...');
+      // Redirect to portal.pieter.com with player data as query params
+      this.redirectToVibeverse();
+      return;
+    } else {
+      // Always redirect to Vibeverse for now (guaranteed to work)
+      console.log('Treating all portals as Vibeverse portals for testing');
+      this.redirectToVibeverse();
+      return;
+    }
+    
+    // The code below won't execute anymore as we're redirecting for all portals
+    
+    // Regular in-game portal teleportation
+    // Teleport player forward
+    this.zPosition -= 150; // Jump ahead 150 units
+
+    // Random X position on the road
+    this.xPosition = (Math.random() - 0.5) * (this.environment.roadWidth - 10);
+
+    // Boost speed temporarily
+    const originalSpeed = this.forwardSpeed;
+    this.forwardSpeed *= 1.5;
+
+    // Speed boost is temporary - gradually return to normal
+    setTimeout(() => {
+      this.forwardSpeed = originalSpeed;
+    }, 3000);
+
+    // Add bonus score for using portal
+    this.score += 100;
+  }
+
+  createTeleportEffect(position) {
+    // Create a flash effect at portal location
+    const flashGeometry = new THREE.SphereGeometry(10, 32, 32);
+    const flashMaterial = new THREE.MeshBasicMaterial({
+      color: this.environment.portalColor,
+      transparent: true,
+      opacity: 0.7,
+    });
+
+    const flash = new THREE.Mesh(flashGeometry, flashMaterial);
+    flash.position.copy(position);
+    this.scene.scene.add(flash);
+
+    // Animate the flash effect
+    let scale = 1;
+    const expandFlash = () => {
+      scale += 0.2;
+      flash.scale.set(scale, scale, scale);
+      flash.material.opacity -= 0.05;
+
+      if (flash.material.opacity > 0) {
+        requestAnimationFrame(expandFlash);
+      } else {
+        this.scene.scene.remove(flash);
+      }
+    };
+
+    requestAnimationFrame(expandFlash);
+  }
+  
+  redirectToVibeverse() {
+    // Build query parameters for the portal redirect
+    const params = new URLSearchParams();
+    
+    // Add player data
+    params.append('portal', 'true');
+    
+    // Get player name or generate a random one
+    // Check different potential name properties based on the class structure
+    const playerName = this.name || this.username || 'BugRunner_' + Math.floor(Math.random() * 1000);
+    params.append('username', playerName);
+    
+    // Get player color in hex format
+    let colorHex;
+    if (this.colors && this.colorIndex !== undefined) {
+      // If using the colors array
+      colorHex = this.colors[this.colorIndex];
+    } else if (this.mesh && this.mesh.material && this.mesh.material.color) {
+      // If using Three.js material color
+      colorHex = this.mesh.material.color.getHex();
+    } else {
+      // Default fallback color (bright green)
+      colorHex = 0x00ff00;
+    }
+    
+    // Format the color as a hex string
+    const colorString = colorHex.toString(16).padStart(6, '0');
+    params.append('color', colorString);
+    
+    // Add speed (in m/s)
+    params.append('speed', this.forwardSpeed.toFixed(2));
+    
+    // Add reference to this game
+    params.append('ref', window.location.href);
+    
+    // Create a URL with the portal destination and parameters
+    const portalUrl = 'http://portal.pieter.com/?' + params.toString();
+    
+    // Create a preloading effect before redirecting
+    console.log('Redirecting to Vibeverse Portal:', portalUrl);
+    
+    // Show a portal transition effect before redirecting
+    const transitionOverlay = document.createElement('div');
+    transitionOverlay.style.position = 'fixed';
+    transitionOverlay.style.top = '0';
+    transitionOverlay.style.left = '0';
+    transitionOverlay.style.width = '100%';
+    transitionOverlay.style.height = '100%';
+    transitionOverlay.style.backgroundColor = '#00ff00';
+    transitionOverlay.style.opacity = '0';
+    transitionOverlay.style.transition = 'opacity 1s';
+    transitionOverlay.style.zIndex = '1000';
+    document.body.appendChild(transitionOverlay);
+    
+    // For debugging - add a visible message that we can see
+    const debugMessage = document.createElement('div');
+    debugMessage.style.position = 'fixed';
+    debugMessage.style.top = '50%';
+    debugMessage.style.left = '50%';
+    debugMessage.style.transform = 'translate(-50%, -50%)';
+    debugMessage.style.color = '#ffffff';
+    debugMessage.style.fontSize = '24px';
+    debugMessage.style.fontWeight = 'bold';
+    debugMessage.style.zIndex = '1001';
+    debugMessage.textContent = 'Redirecting to: ' + portalUrl;
+    document.body.appendChild(debugMessage);
+    
+    // IMMEDIATELY change location - no timeout to make sure it happens
+    window.location.href = portalUrl;
+    
+    // Backup plan with timeout (in case immediate redirect doesn't work)
+    setTimeout(() => {
+      console.log('Backup redirect happening now');
+      window.location.replace(portalUrl);
+    }, 500);
   }
 
   // Optional: Add method to reset jump state
