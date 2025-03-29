@@ -456,6 +456,12 @@ export class Player {
     this.mesh.position.z = this.zPosition;
 
     if (this.isAlive) {
+      // Check if player has jumped into a portal
+      if (this.isJumping && this.environment.checkPortalCollision(this)) {
+        console.log("Jumped into the portal");
+        // You can add special effects or scoring here
+      }
+
       this.updateCamera(segment.xPosition);
     }
 
