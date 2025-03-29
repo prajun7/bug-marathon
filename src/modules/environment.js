@@ -42,10 +42,24 @@ export class Environment {
     this.lastPendulumZ = 0;
     this.minPendulumSpacing = 200; // Minimum distance between pendulums
 
+    // Portal properties
+    this.portals = [];
+    this.portalSpawnTimer = 0;
+    this.portalSpawnInterval = Math.random() * 15000 + 15000; // 15-30 seconds (rarer than pendulum)
+    this.portalSpawnChance = 0.5; // 50% chance when timer triggers
+    this.portalColor = 0x00ff00; // Bright green color
+    this.lastPortalZ = 0;
+    this.spawnInitialPortal = Math.random() < 0.3; // 30% chance to have a portal at the beginning
+
     // Initialize
     this.createInitialSegments();
     this.createInitialClouds();
     this.spawnInitialObstacles();
+
+    // Create initial portal if needed
+    if (this.spawnInitialPortal) {
+      this.createPortal(-50); // Create a portal near the beginning
+    }
   }
 
   createSegment(zPosition) {
@@ -177,6 +191,12 @@ export class Environment {
 
     const newZ = lastSegment.zPosition - this.segmentLength;
 
+    // Update pendulums
+    this.updatePendulums(playerPosition.z);
+
+    // Update portals
+    this.updatePortals(playerPosition.z);
+
     if (Math.abs(playerPosition.z - newZ) < this.segmentLength * 3) {
       // Add new segment
       const newSegment = this.createSegment(newZ);
@@ -185,6 +205,9 @@ export class Environment {
       // Remove old segment if too many
       if (this.segments.length > this.visibleSegments) {
         const oldSegment = this.segments.shift();
+
+        // Check for possible obstacle spawn
+        this.spawnObstacle();
         this.scene.scene.remove(oldSegment.road);
         oldSegment.barriers.left.forEach((b) => this.scene.scene.remove(b));
         oldSegment.barriers.right.forEach((b) => this.scene.scene.remove(b));
@@ -465,10 +488,13 @@ export class Environment {
       // Set new random interval for next spawn
       this.pendulumSpawnInterval = Math.random() * 10000 + 10000; // 10-20 seconds
 
-      // Spawn pendulum at random position ahead of player
-      const newZ = playerZ - 200; // Spawn ahead of player
-      const randomX = (Math.random() - 0.5) * (this.roadWidth - 20); // Random position across road
-      this.createPendulum(newZ, randomX);
+      // Only spawn with 70% probability and if we don't have too many already
+      if (Math.random() < 0.7 && this.pendulums.length < 3) {
+        // Spawn pendulum at random position ahead of player
+        const newZ = playerZ - 200; // Spawn ahead of player
+        const randomX = (Math.random() - 0.5) * (this.roadWidth - 20); // Random position across road
+        this.createPendulum(newZ, randomX);
+      }
     }
 
     // Update existing pendulums
@@ -520,5 +546,150 @@ export class Environment {
       }
     }
     return false;
+  }
+
+  createPortal(zPosition) {
+    // Create the portal ring
+    const torusGeometry = new THREE.TorusGeometry(8, 2, 16, 32);
+    const torusMaterial = new THREE.MeshStandardMaterial({
+      color: this.portalColor,
+      emissive: this.portalColor,
+      emissiveIntensity: 0.8,
+      roughness: 0.3,
+      metalness: 0.7,
+    });
+
+    const portal = new THREE.Mesh(torusGeometry, torusMaterial);
+
+    // Position the portal horizontally on the road
+    // Random position within the road bounds, but not too close to the walls
+    const xOffset = (Math.random() - 0.5) * (this.roadWidth - 16);
+    portal.position.set(xOffset, 7, zPosition);
+
+    // Create a glow effect for better visibility
+    const glowGeometry = new THREE.TorusGeometry(9, 2.5, 16, 32);
+    const glowMaterial = new THREE.MeshBasicMaterial({
+      color: this.portalColor,
+      transparent: true,
+      opacity: 0.3,
+      side: THREE.BackSide,
+    });
+    const glow = new THREE.Mesh(glowGeometry, glowMaterial);
+    portal.add(glow);
+
+    // Add portal particles for effect
+    const particleCount = 150;
+    const particleGeometry = new THREE.BufferGeometry();
+    const particlePositions = new Float32Array(particleCount * 3);
+
+    for (let i = 0; i < particleCount; i++) {
+      const angle = Math.random() * Math.PI * 2;
+      const radius = 6 + (Math.random() * 4 - 2);
+      const offsetX = Math.cos(angle) * radius;
+      const offsetY = Math.sin(angle) * radius;
+
+      particlePositions[i * 3] = offsetX;
+      particlePositions[i * 3 + 1] = offsetY;
+      particlePositions[i * 3 + 2] = 0;
+    }
+
+    particleGeometry.setAttribute(
+      "position",
+      new THREE.BufferAttribute(particlePositions, 3)
+    );
+
+    const particleMaterial = new THREE.PointsMaterial({
+      color: this.portalColor,
+      size: 0.5,
+      transparent: true,
+      opacity: 0.8,
+      blending: THREE.AdditiveBlending,
+    });
+
+    const particles = new THREE.Points(particleGeometry, particleMaterial);
+    portal.add(particles);
+
+    // Add portal to scene
+    this.scene.scene.add(portal);
+
+    // Store portal data
+    this.portals.push({
+      mesh: portal,
+      zPosition: zPosition,
+      xPosition: xOffset,
+      active: true,
+      creationTime: Date.now(),
+    });
+
+    this.lastPortalZ = zPosition;
+
+    return portal;
+  }
+
+  checkPortalCollisions(player) {
+    if (!player.isJumping) return false; // Only allow portal entry while jumping
+
+    for (const portal of this.portals) {
+      if (!portal.active) continue;
+
+      // Create collision boxes
+      const portalBox = {
+        minX: portal.mesh.position.x - 8,
+        maxX: portal.mesh.position.x + 8,
+        minY: portal.mesh.position.y - 8,
+        maxY: portal.mesh.position.y + 8,
+        minZ: portal.mesh.position.z - 2,
+        maxZ: portal.mesh.position.z + 2,
+      };
+
+      const playerBox = {
+        minX: player.mesh.position.x - 2,
+        maxX: player.mesh.position.x + 2,
+        minY: player.mesh.position.y - 4,
+        maxY: player.mesh.position.y + 4,
+        minZ: player.mesh.position.z - 2,
+        maxZ: player.mesh.position.z + 2,
+      };
+
+      // Check for collision
+      if (this.checkBoxCollision(playerBox, portalBox)) {
+        return portal; // Return the portal object for teleportation handling
+      }
+    }
+
+    return false;
+  }
+
+  updatePortals(playerZ) {
+    // Update spawn timer (similar to pendulum system)
+    this.portalSpawnTimer += 16; // Assuming 60fps
+
+    // Check if it's time to spawn a new portal
+    if (this.portalSpawnTimer >= this.portalSpawnInterval) {
+      this.portalSpawnTimer = 0;
+      // Set new random interval for next spawn
+      this.portalSpawnInterval = Math.random() * 15000 + 15000; // 15-30 seconds (rarer than pendulum)
+
+      // Add randomness factor to make portals rarer
+      if (Math.random() < this.portalSpawnChance && this.portals.length < 2) {
+        console.log("Spawning new portal based on timer");
+        const newZ = playerZ - 200; // Spawn ahead of player
+        this.createPortal(newZ);
+      }
+    }
+
+    // Update existing portals
+    for (let i = this.portals.length - 1; i >= 0; i--) {
+      const portal = this.portals[i];
+
+      // Portal rotation animation
+      portal.mesh.rotation.y += 0.01;
+
+      // Remove portals that are too far behind
+      if (portal.zPosition - playerZ > 100) {
+        this.scene.scene.remove(portal.mesh);
+        this.portals.splice(i, 1);
+      }
+    }
   }
 }

@@ -414,6 +414,9 @@ export class Player {
       this.handlePendulumHit();
     }
 
+    // Check for portal collisions
+    this.checkPortalCollisions();
+
     // Only move forward if not knocked back and not blocked by obstacle
     if (!this.isKnockedBack && !this.isBlockedByObstacle) {
       this.zPosition -= this.forwardSpeed;
@@ -548,6 +551,75 @@ export class Player {
   getJumpState() {
     if (!this.isJumping) return "grounded";
     return this.jumpCount === 1 ? "first-jump" : "second-jump";
+  }
+
+  checkPortalCollisions() {
+    // Only check if player is alive and jumping (can only enter portals while jumping)
+    if (!this.isAlive || !this.isJumping) return;
+
+    // Check for portal collision using Environment's method
+    const portal = this.environment.checkPortalCollisions(this);
+
+    if (portal) {
+      // Player has entered a portal
+      this.teleportThroughPortal(portal);
+    }
+  }
+
+  teleportThroughPortal(portal) {
+    // Deactivate the portal so it can't be used again
+    portal.active = false;
+
+    // Create a teleport effect
+    this.createTeleportEffect(portal.mesh.position);
+
+    // Teleport player forward
+    this.zPosition -= 150; // Jump ahead 150 units
+
+    // Random X position on the road
+    this.xPosition = (Math.random() - 0.5) * (this.environment.roadWidth - 10);
+
+    // Boost speed temporarily
+    const originalSpeed = this.forwardSpeed;
+    this.forwardSpeed *= 1.5;
+
+    // Speed boost is temporary - gradually return to normal
+    setTimeout(() => {
+      this.forwardSpeed = originalSpeed;
+    }, 3000);
+
+    // Add bonus score for using portal
+    this.score += 100;
+  }
+
+  createTeleportEffect(position) {
+    // Create a flash effect at portal location
+    const flashGeometry = new THREE.SphereGeometry(10, 32, 32);
+    const flashMaterial = new THREE.MeshBasicMaterial({
+      color: this.environment.portalColor,
+      transparent: true,
+      opacity: 0.7,
+    });
+
+    const flash = new THREE.Mesh(flashGeometry, flashMaterial);
+    flash.position.copy(position);
+    this.scene.scene.add(flash);
+
+    // Animate the flash effect
+    let scale = 1;
+    const expandFlash = () => {
+      scale += 0.2;
+      flash.scale.set(scale, scale, scale);
+      flash.material.opacity -= 0.05;
+
+      if (flash.material.opacity > 0) {
+        requestAnimationFrame(expandFlash);
+      } else {
+        this.scene.scene.remove(flash);
+      }
+    };
+
+    requestAnimationFrame(expandFlash);
   }
 
   // Optional: Add method to reset jump state
