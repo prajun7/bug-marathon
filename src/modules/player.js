@@ -572,7 +572,15 @@ export class Player {
 
     // Create a teleport effect
     this.createTeleportEffect(portal.mesh.position);
-
+    
+    // Check if this is a Vibeverse Portal (it will have isVibeverse=true)
+    if (portal.isVibeverse) {
+      // Redirect to portal.pieter.com with player data as query params
+      this.redirectToVibeverse();
+      return;
+    }
+    
+    // Regular in-game portal teleportation
     // Teleport player forward
     this.zPosition -= 150; // Jump ahead 150 units
 
@@ -620,6 +628,53 @@ export class Player {
     };
 
     requestAnimationFrame(expandFlash);
+  }
+  
+  redirectToVibeverse() {
+    // Build query parameters for the portal redirect
+    const params = new URLSearchParams();
+    
+    // Add player data
+    params.append('portal', 'true');
+    params.append('username', this.name || 'BugRunner_' + Math.floor(Math.random() * 1000));
+    
+    // Get player color in hex format
+    const colorHex = this.colors[this.colorIndex];
+    params.append('color', colorHex.toString(16).padStart(6, '0'));
+    
+    // Add speed (in m/s)
+    params.append('speed', this.forwardSpeed.toFixed(2));
+    
+    // Add reference to this game
+    params.append('ref', window.location.hostname + window.location.pathname);
+    
+    // Create a URL with the portal destination and parameters
+    const portalUrl = 'http://portal.pieter.com/?' + params.toString();
+    
+    // Create a preloading effect before redirecting
+    console.log('Redirecting to Vibeverse Portal:', portalUrl);
+    
+    // Show a portal transition effect before redirecting
+    const transitionOverlay = document.createElement('div');
+    transitionOverlay.style.position = 'fixed';
+    transitionOverlay.style.top = '0';
+    transitionOverlay.style.left = '0';
+    transitionOverlay.style.width = '100%';
+    transitionOverlay.style.height = '100%';
+    transitionOverlay.style.backgroundColor = '#00ff00';
+    transitionOverlay.style.opacity = '0';
+    transitionOverlay.style.transition = 'opacity 1s';
+    transitionOverlay.style.zIndex = '1000';
+    document.body.appendChild(transitionOverlay);
+    
+    // Fade in the overlay then redirect
+    setTimeout(() => {
+      transitionOverlay.style.opacity = '0.8';
+      
+      setTimeout(() => {
+        window.location.href = portalUrl;
+      }, 1000);
+    }, 10);
   }
 
   // Optional: Add method to reset jump state

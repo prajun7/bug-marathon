@@ -60,6 +60,9 @@ export class Environment {
     if (this.spawnInitialPortal) {
       this.createPortal(-50); // Create a portal near the beginning
     }
+
+    // Always create a Vibeverse portal
+    this.createVibeVersePortal();
   }
 
   createSegment(zPosition) {
@@ -554,12 +557,14 @@ export class Environment {
     return false;
   }
 
-  createPortal(zPosition) {
+  createPortal(zPosition, isVibeverse = false) {
     // Create the portal ring
     const torusGeometry = new THREE.TorusGeometry(8, 2, 16, 32);
+    const portalColor = isVibeverse ? 0x00ff00 : this.portalColor; // Green for Vibeverse portal
+
     const torusMaterial = new THREE.MeshStandardMaterial({
-      color: this.portalColor,
-      emissive: this.portalColor,
+      color: portalColor,
+      emissive: portalColor,
       emissiveIntensity: 0.8,
       roughness: 0.3,
       metalness: 0.7,
@@ -575,7 +580,7 @@ export class Environment {
     // Create a glow effect for better visibility
     const glowGeometry = new THREE.TorusGeometry(9, 2.5, 16, 32);
     const glowMaterial = new THREE.MeshBasicMaterial({
-      color: this.portalColor,
+      color: portalColor,
       transparent: true,
       opacity: 0.3,
       side: THREE.BackSide,
@@ -605,7 +610,7 @@ export class Environment {
     );
 
     const particleMaterial = new THREE.PointsMaterial({
-      color: this.portalColor,
+      color: portalColor,
       size: 0.5,
       transparent: true,
       opacity: 0.8,
@@ -614,6 +619,11 @@ export class Environment {
 
     const particles = new THREE.Points(particleGeometry, particleMaterial);
     portal.add(particles);
+
+    // If this is a Vibeverse portal, add a label
+    if (isVibeverse) {
+      this.addVibeverseLabelToPortal(portal);
+    }
 
     // Add portal to scene
     this.scene.scene.add(portal);
@@ -625,6 +635,7 @@ export class Environment {
       xPosition: xOffset,
       active: true,
       creationTime: Date.now(),
+      isVibeverse: isVibeverse, // Flag to identify Vibeverse portals
     });
 
     this.lastPortalZ = zPosition;
@@ -681,7 +692,14 @@ export class Environment {
       if (Math.random() < this.portalSpawnChance && this.portals.length < 2) {
         console.log("Spawning new portal based on timer");
         const newZ = playerZ - 200; // Spawn ahead of player
-        this.createPortal(newZ);
+
+        // 20% chance to create a Vibeverse portal instead of a regular one
+        if (Math.random() < 0.2) {
+          this.createPortal(newZ, true); // Create a Vibeverse portal
+          console.log("Spawned a Vibeverse portal!");
+        } else {
+          this.createPortal(newZ); // Create a regular portal
+        }
       }
     }
 
@@ -701,5 +719,75 @@ export class Environment {
       // Portal rotation animation
       portal.mesh.rotation.y += 0.01;
     }
+  }
+
+  addVibeverseLabelToPortal(portal) {
+    // Create a canvas for the portal label
+    const canvas = document.createElement("canvas");
+    const context = canvas.getContext("2d");
+    canvas.width = 512;
+    canvas.height = 64;
+
+    // Draw the label text
+    context.fillStyle = "#00ff00";
+    context.font = "bold 32px Arial";
+    context.textAlign = "center";
+    context.fillText("VIBEVERSE PORTAL", canvas.width / 2, canvas.height / 2);
+
+    // Create a texture from the canvas
+    const texture = new THREE.CanvasTexture(canvas);
+
+    // Create a plane with the texture
+    const labelGeometry = new THREE.PlaneGeometry(16, 3);
+    const labelMaterial = new THREE.MeshBasicMaterial({
+      map: texture,
+      transparent: true,
+      side: THREE.DoubleSide,
+    });
+
+    // Add the label above the portal
+    const label = new THREE.Mesh(labelGeometry, labelMaterial);
+    label.position.y = 14;
+    label.rotation.x = Math.PI / 4; // Tilt slightly for better visibility
+
+    portal.add(label);
+  }
+
+  checkForIncomingPortal() {
+    // Check if the player arrived through a portal
+    if (
+      window.location.search &&
+      new URLSearchParams(window.location.search).get("portal") === "true"
+    ) {
+      console.log("Player arrived through a portal!");
+
+      // Create a start portal that leads back to the referrer
+      this.createStartPortal();
+    }
+  }
+
+  createStartPortal() {
+    // Get the referrer URL
+    const urlParams = new URLSearchParams(window.location.search);
+    const refUrl = urlParams.get("ref");
+
+    if (!refUrl) return; // No referrer, no portal
+
+    // Create a portal at the beginning
+    const startPortal = this.createPortal(-100);
+
+    // Set the referrer in the portal data
+    const portalData = this.portals.find((p) => p.mesh === startPortal);
+    if (portalData) {
+      portalData.refUrl = refUrl;
+    }
+
+    console.log("Created start portal to:", refUrl);
+  }
+
+  createVibeVersePortal() {
+    // Create a Vibeverse portal ahead of the player
+    const zPosition = -400; // Far ahead of starting position
+    return this.createPortal(zPosition, true);
   }
 }
