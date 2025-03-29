@@ -110,11 +110,12 @@ export class Player {
 
   // Generate a random color that's different from road and rock colors
   generateRandomPlayerColor() {
-    // Colors to avoid (road, rocks, and previous green)
+    // Colors to avoid (road, rocks)
     const avoidColors = [0x333333, 0x708090];
 
-    // Predefined vibrant colors that contrast well with the environment
+    // Extended palette of vibrant colors that contrast well with the environment
     const colorOptions = [
+      // Basic colors
       0xff0000, // Red
       0x0000ff, // Blue
       0xff00ff, // Magenta
@@ -125,6 +126,27 @@ export class Player {
       0xff0080, // Pink
       0x80ff00, // Lime
       0x00ff00, // Green
+
+      // Additional colors
+      0xff3366, // Rose
+      0x9933ff, // Violet
+      0x0099ff, // Azure blue
+      0x00cc99, // Caribbean green
+      0xffcc00, // Gold
+      0xff6600, // Bright orange
+      0x9900cc, // Indigo
+      0xcc0066, // Crimson
+      0x66ff33, // Bright lime
+      0x33ccff, // Sky blue
+      0xff99cc, // Light pink
+      0xff3300, // Vermillion
+      0x66ffcc, // Seafoam
+      0x6600ff, // Electric purple
+      0xff6699, // Hot pink
+      0xccff00, // Chartreuse
+      0x00ffaa, // Spring green
+      0xaa00ff, // Electric violet
+      0xffaa00, // Amber
     ];
 
     // Filter out any colors that are too similar to the ones we want to avoid
