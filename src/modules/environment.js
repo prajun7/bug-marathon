@@ -1,4 +1,6 @@
 export class Environment {
+  // Static property to store data from incoming portals
+  static incomingPortalData = null;
   constructor(scene) {
     this.scene = scene;
 
@@ -45,11 +47,12 @@ export class Environment {
     // Portal properties
     this.portals = [];
     this.portalSpawnTimer = 0;
-    this.portalSpawnInterval = Math.random() * 15000 + 15000; // 15-30 seconds (rarer than pendulum)
-    this.portalSpawnChance = 0.5; // 50% chance when timer triggers
+    this.portalSpawnInterval = Math.random() * 15000 + 15000; // 30-45 seconds for first portal
+    this.portalSpawnChance = 0.5; // 50% chance for first portal
     this.portalColor = 0x00ff00; // Bright green color
     this.lastPortalZ = 0;
     this.spawnInitialPortal = Math.random() < 0.3; // 30% chance to have a portal at the beginning
+    this.portalsSpawned = 0; // Track number of portals spawned
 
     // Initialize
     this.createInitialSegments();
@@ -685,8 +688,21 @@ export class Environment {
     // Check if it's time to spawn a new portal
     if (this.portalSpawnTimer >= this.portalSpawnInterval) {
       this.portalSpawnTimer = 0;
-      // Set new random interval for next spawn
-      this.portalSpawnInterval = Math.random() * 15000 + 15000; // 15-30 seconds (rarer than pendulum)
+
+      // Adjust spawn interval and chance based on number of portals spawned
+      if (this.portalsSpawned === 0) {
+        // First portal: 30-45 seconds interval, 50% chance
+        this.portalSpawnInterval = Math.random() * 15000 + 15000; // 30-45 seconds
+        this.portalSpawnChance = 0.5;
+      } else if (this.portalsSpawned === 1) {
+        // Second portal: 45-60 seconds interval, 30% chance
+        this.portalSpawnInterval = Math.random() * 15000 + 30000; // 45-60 seconds
+        this.portalSpawnChance = 0.3;
+      } else {
+        // Subsequent portals: 60-90 seconds interval, 20% chance
+        this.portalSpawnInterval = Math.random() * 30000 + 60000; // 60-90 seconds
+        this.portalSpawnChance = 0.2;
+      }
 
       // Add randomness factor to make portals rarer
       if (Math.random() < this.portalSpawnChance && this.portals.length < 2) {
@@ -698,8 +714,11 @@ export class Environment {
           this.createPortal(newZ, true); // Create a Vibeverse portal
           console.log("Spawned a Vibeverse portal!");
         } else {
-          this.createPortal(newZ); // Create a regular portal
+          this.createPortal(newZ);
         }
+
+        // Increment portals spawned counter
+        this.portalsSpawned++;
       }
     }
 
@@ -760,6 +779,27 @@ export class Environment {
       new URLSearchParams(window.location.search).get("portal") === "true"
     ) {
       console.log("Player arrived through a portal!");
+
+      // Extract portal parameters
+      const urlParams = new URLSearchParams(window.location.search);
+
+      // Get incoming player data
+      const incomingUsername = urlParams.get("username");
+      const incomingColor = urlParams.get("color");
+      const incomingSpeed = urlParams.get("speed");
+
+      // Store for game initialization
+      if (incomingUsername) {
+        console.log("Incoming player name from portal:", incomingUsername);
+        // Store in localStorage to use during player creation
+        localStorage.setItem("bugMarathonUsername", incomingUsername);
+        // Also store in a static property for direct access
+        Environment.incomingPortalData = {
+          username: incomingUsername,
+          color: incomingColor,
+          speed: incomingSpeed,
+        };
+      }
 
       // Create a start portal that leads back to the referrer
       this.createStartPortal();
