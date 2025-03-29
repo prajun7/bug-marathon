@@ -1,4 +1,6 @@
 export class Environment {
+  // Static property to store data from incoming portals
+  static incomingPortalData = null;
   constructor(scene) {
     this.scene = scene;
 
@@ -760,6 +762,27 @@ export class Environment {
       new URLSearchParams(window.location.search).get("portal") === "true"
     ) {
       console.log("Player arrived through a portal!");
+
+      // Extract portal parameters
+      const urlParams = new URLSearchParams(window.location.search);
+
+      // Get incoming player data
+      const incomingUsername = urlParams.get("username");
+      const incomingColor = urlParams.get("color");
+      const incomingSpeed = urlParams.get("speed");
+
+      // Store for game initialization
+      if (incomingUsername) {
+        console.log("Incoming player name from portal:", incomingUsername);
+        // Store in localStorage to use during player creation
+        localStorage.setItem("bugMarathonUsername", incomingUsername);
+        // Also store in a static property for direct access
+        Environment.incomingPortalData = {
+          username: incomingUsername,
+          color: incomingColor,
+          speed: incomingSpeed,
+        };
+      }
 
       // Create a start portal that leads back to the referrer
       this.createStartPortal();
