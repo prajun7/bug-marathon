@@ -23,9 +23,14 @@ const createHighScoreManager = () => {
 };
 
 export class Player {
-  constructor(scene, environment) {
+  constructor(scene, environment, username) {
     this.scene = scene;
     this.environment = environment;
+
+    // Store the player's name from login
+    this.username =
+      username || localStorage.getItem("bugMarathonUsername") || "BugRunner";
+    console.log("Player username set to:", this.username);
 
     // Position settings
     this.xPosition = 0;
@@ -654,11 +659,11 @@ export class Player {
 
     // Get player name or generate a random one
     // Check different potential name properties based on the class structure
+    // Get username directly from the username property we stored at login
     const playerName =
-      this.name ||
-      this.username ||
-      "BugRunner_" + Math.floor(Math.random() * 1000);
+      this.username || "BugRunner_" + Math.floor(Math.random() * 1000);
     params.append("username", playerName);
+    console.log("Sending player name to portal:", playerName);
 
     // Get player color in hex format
     let colorHex;
