@@ -191,11 +191,13 @@ export class Environment {
 
     const newZ = lastSegment.zPosition - this.segmentLength;
 
-    // Update pendulums
-    this.updatePendulums(playerPosition.z);
+    // Update pendulum and portal timers, but not animations
+    this.updatePendulumSpawning(playerPosition.z);
+    this.updatePortalSpawning(playerPosition.z);
 
-    // Update portals
-    this.updatePortals(playerPosition.z);
+    // Update pendulum swinging and portal animations
+    this.animatePendulums();
+    this.animatePortals();
 
     if (Math.abs(playerPosition.z - newZ) < this.segmentLength * 3) {
       // Add new segment
@@ -233,7 +235,8 @@ export class Environment {
     this.updateClouds(playerPosition.z);
 
     // Update pendulums with player position
-    this.updatePendulums(playerPosition.z);
+    this.updatePendulumSpawning(playerPosition.z);
+    this.animatePendulums();
   }
 
   createCloud() {
@@ -458,7 +461,7 @@ export class Environment {
     // Add swing properties with random initial angle
     pendulum.userData = {
       angle: Math.random() * Math.PI * 2, // Random starting angle
-      swingSpeed: 0.02,
+      swingSpeed: 0.01, // Further reduced swing speed for more natural motion
       maxAngle: Math.PI / 3, // Maximum swing angle
       zPosition: zPosition,
     };
@@ -478,7 +481,8 @@ export class Environment {
     this.pendulums.push(pendulum);
   }
 
-  updatePendulums(playerZ) {
+  // Split pendulum update into spawning and animation
+  updatePendulumSpawning(playerZ) {
     // Update spawn timer
     this.pendulumSpawnTimer += 16; // Assuming 60fps
 
@@ -497,20 +501,22 @@ export class Environment {
       }
     }
 
-    // Update existing pendulums
+    // Remove pendulums that are too far behind
     for (let i = this.pendulums.length - 1; i >= 0; i--) {
       const pendulum = this.pendulums[i];
-
-      // Update swing animation
-      pendulum.userData.angle += pendulum.userData.swingSpeed;
-      pendulum.rotation.z =
-        Math.sin(pendulum.userData.angle) * pendulum.userData.maxAngle;
-
-      // Remove pendulums that are too far behind
       if (pendulum.position.z - playerZ > 100) {
         this.scene.scene.remove(pendulum);
         this.pendulums.splice(i, 1);
       }
+    }
+  }
+
+  animatePendulums() {
+    // Update swing animation for all pendulums
+    for (const pendulum of this.pendulums) {
+      pendulum.userData.angle += pendulum.userData.swingSpeed;
+      pendulum.rotation.z =
+        Math.sin(pendulum.userData.angle) * pendulum.userData.maxAngle;
     }
   }
 
@@ -660,7 +666,8 @@ export class Environment {
     return false;
   }
 
-  updatePortals(playerZ) {
+  // Split portal update into spawning and animation
+  updatePortalSpawning(playerZ) {
     // Update spawn timer (similar to pendulum system)
     this.portalSpawnTimer += 16; // Assuming 60fps
 
@@ -678,18 +685,21 @@ export class Environment {
       }
     }
 
-    // Update existing portals
+    // Remove portals that are too far behind
     for (let i = this.portals.length - 1; i >= 0; i--) {
       const portal = this.portals[i];
-
-      // Portal rotation animation
-      portal.mesh.rotation.y += 0.01;
-
-      // Remove portals that are too far behind
       if (portal.zPosition - playerZ > 100) {
         this.scene.scene.remove(portal.mesh);
         this.portals.splice(i, 1);
       }
+    }
+  }
+
+  animatePortals() {
+    // Update animation for all portals
+    for (const portal of this.portals) {
+      // Portal rotation animation
+      portal.mesh.rotation.y += 0.01;
     }
   }
 }
